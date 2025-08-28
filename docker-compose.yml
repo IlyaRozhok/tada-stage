@@ -15,3 +15,7 @@ services:
       - rental_network_stage
     extra_hosts:
       - "host.docker.internal:host-gateway"
+
+networks:
+  rental_network_stage:
+    driver: bridge
