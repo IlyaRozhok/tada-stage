@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
     container_name: tada-backend-stage
     ports:
-      - "3001:3001"
+      - "3002:3002"
     env_file:
       - ./backend/.env.stage
     environment:
@@ -15,6 +15,3 @@ services:
       - rental_network_stage
     extra_hosts:
       - "host.docker.internal:host-gateway"
-
-networks:
-  rental_network:
