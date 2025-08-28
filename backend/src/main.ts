@@ -25,7 +25,7 @@ async function bootstrap() {
   // Consider using a dedicated static file server (e.g., Nginx, S3, CDN) for serving uploads in production.
 
   app.enableCors({
-    origin: ["https://tada.illiacodes.dev", "http://localhost:3000"],
+    origin: ["https://stage.ta-da.co", "http://www.stage.ta-da.co"],
     credentials: false,
   });
 
