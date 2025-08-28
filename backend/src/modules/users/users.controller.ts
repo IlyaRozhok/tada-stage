@@ -21,7 +21,7 @@ import {
 
 import { UsersService } from "./users.service";
 import { UpdateUserDto } from "./dto/update-user.dto";
-import { User } from "../../entities/user.entity";
+import { User, UserRole } from "../../entities/user.entity";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { RolesGuard } from "../../common/guards/roles.guard";
@@ -165,7 +165,7 @@ export class UsersController {
     @Req() req: any
   ): Promise<{ user: User; access_token?: string }> {
     // Only allow users to update their own role or admins to update any role
-    if (req.user.id !== id && req.user.role !== "admin") {
+    if (req.user.id !== id && req.user.role !== UserRole.Admin) {
       throw new Error("Unauthorized");
     }
 

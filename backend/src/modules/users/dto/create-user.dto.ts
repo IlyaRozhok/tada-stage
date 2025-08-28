@@ -3,8 +3,9 @@ import {
   IsString,
   MinLength,
   IsOptional,
-  IsIn,
+  IsEnum,
 } from "class-validator";
+import { UserRole } from "../../../entities/user.entity";
 
 export class CreateUserDto {
   @IsOptional()
@@ -19,6 +20,6 @@ export class CreateUserDto {
   password: string;
 
   @IsOptional()
-  @IsIn(["admin", "operator", "tenant"])
-  role?: string = "tenant";
+  @IsEnum(UserRole)
+  role?: UserRole = UserRole.Tenant;
 }

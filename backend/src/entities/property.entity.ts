@@ -87,6 +87,20 @@ export class Property {
   @Column("boolean", { default: false })
   is_btr: boolean;
 
+  @ApiProperty({
+    description: "Property latitude coordinate",
+    example: 51.5074,
+  })
+  @Column("decimal", { precision: 10, scale: 7, nullable: true })
+  lat: number;
+
+  @ApiProperty({
+    description: "Property longitude coordinate",
+    example: -0.1278,
+  })
+  @Column("decimal", { precision: 10, scale: 7, nullable: true })
+  lng: number;
+
   @ApiProperty({ description: "Property operator/landlord ID" })
   @Column("uuid")
   operator_id: string;

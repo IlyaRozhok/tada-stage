@@ -16,6 +16,18 @@ import { TenantProfile } from "./tenant-profile.entity";
 import { OperatorProfile } from "./operator-profile.entity";
 import { Shortlist } from "./shortlist.entity";
 
+export enum UserRole {
+  Admin = "admin",
+  Operator = "operator",
+  Tenant = "tenant",
+}
+
+export enum UserStatus {
+  Active = "active",
+  Inactive = "inactive",
+  Suspended = "suspended",
+}
+
 @Entity("users")
 export class User {
   @ApiProperty({ description: "Unique user identifier" })
@@ -37,18 +49,26 @@ export class User {
   @ApiProperty({
     description: "Primary user role",
     example: "tenant",
-    enum: ["admin", "operator", "tenant"],
+    enum: UserRole,
   })
-  @Column({ nullable: true })
-  role: string;
+  @Column({
+    type: "enum",
+    enum: UserRole,
+    nullable: true,
+  })
+  role: UserRole;
 
   @ApiProperty({
     description: "User account status",
     example: "active",
-    enum: ["active", "inactive", "suspended"],
+    enum: UserStatus,
   })
-  @Column({ default: "active" })
-  status: string;
+  @Column({
+    type: "enum",
+    enum: UserStatus,
+    default: UserStatus.Active,
+  })
+  status: UserStatus;
 
   @ApiProperty({
     description: "User full name",

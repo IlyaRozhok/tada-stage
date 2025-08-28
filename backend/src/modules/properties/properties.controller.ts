@@ -8,12 +8,8 @@ import {
   UseGuards,
   Request,
   Query,
-  UseInterceptors,
-  UploadedFiles,
   Patch,
-  UploadedFile,
 } from "@nestjs/common";
-import { FilesInterceptor, FileInterceptor } from "@nestjs/platform-express";
 import {
   ApiTags,
   ApiOperation,
@@ -27,10 +23,6 @@ import { Property } from "../../entities/property.entity";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { RolesGuard } from "../../common/guards/roles.guard";
-import {
-  imageUploadOptions,
-  convertFilePathsToUrls,
-} from "../../common/utils/file-upload.util";
 @ApiTags("Properties")
 @Controller("properties")
 export class PropertiesController {
@@ -116,14 +108,14 @@ export class PropertiesController {
   @Get("public")
   async getPublicProperties(
     @Query("page") page: number = 1,
-    @Query("limit") limit: number = 6,
+    @Query("limit") limit: number = 12,
     @Query("search") search?: string,
     @Query("sortBy") sortBy?: string,
     @Query("order") order?: "ASC" | "DESC"
   ) {
-    // Ensure page and limit are numbers, max 6 for public access
+  
     const pageNum = parseInt(page as any) || 1;
-    const limitNum = Math.min(parseInt(limit as any) || 6, 6);
+    const limitNum = Math.min(parseInt(limit as any) || 12, 12);
 
     const result = await this.propertiesService.findAll(
       pageNum,
@@ -133,15 +125,58 @@ export class PropertiesController {
       order
     );
 
-    // Format response to match frontend expectations
+  
     return {
       data: result.properties,
       total: result.total,
       page: result.page,
       totalPages: result.totalPages,
       isPublic: true,
-      maxPublicProperties: 6,
+      maxPublicProperties: 12,
     };
+  }
+
+  @ApiOperation({
+    summary: "Get all public properties with operators (no auth required)",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "All public properties with operators retrieved",
+    type: [Property],
+  })
+  @Get("public/all")
+  async getAllPublicProperties(
+    @Query("search") search?: string,
+    @Query("sortBy") sortBy?: string,
+    @Query("order") order?: "ASC" | "DESC"
+  ) {
+    const result = await this.propertiesService.findAll(
+      1,
+      100, // Get up to 100 properties
+      search,
+      sortBy,
+      order
+    );
+
+    return {
+      data: result.properties,
+      total: result.total,
+    };
+  }
+
+  @ApiOperation({ summary: "Get single property by ID (no auth required)" })
+  @ApiResponse({
+    status: 200,
+    description: "Property retrieved",
+    type: Property,
+  })
+  @Get("public/:id")
+  async getPublicProperty(@Param("id") id: string) {
+    console.log("🏠 Backend - Getting public property:", id);
+    const result = await this.propertiesService.findOne(id);
+    console.log("🏠 Backend - Returning property:", result?.title);
+    console.log("🖼️ Backend - Property has media:", !!result?.media?.length);
+    return result;
   }
 
   @ApiOperation({ summary: "Get matched properties for logged-in tenant" })
@@ -205,6 +240,7 @@ export class PropertiesController {
   @Roles("admin", "operator", "tenant")
   @Get()
   async findAll(
+    @Request() req,
     @Query("page") page: number = 1,
     @Query("limit") limit: number = 10,
     @Query("search") search?: string,
@@ -220,7 +256,8 @@ export class PropertiesController {
       limitNum,
       search,
       sortBy,
-      order
+      order,
+      req.user?.id
     );
 
     // Format response to match frontend expectations
@@ -239,8 +276,8 @@ export class PropertiesController {
     type: Property,
   })
   @Get(":id")
-  async findOne(@Param("id") id: string) {
-    return await this.propertiesService.findOne(id);
+  async findOne(@Param("id") id: string, @Request() req) {
+    return await this.propertiesService.findOne(id, req.user?.id);
   }
 
   @ApiOperation({ summary: "Delete property (Operators and Admins)" })
@@ -251,52 +288,5 @@ export class PropertiesController {
   @Delete(":id")
   async remove(@Param("id") id: string, @Request() req) {
     return await this.propertiesService.remove(id, req.user.id, req.user.roles);
-  }
-
-  @ApiOperation({
-    summary: "Create property with local file upload (Operators and Admins)",
-  })
-  @ApiResponse({
-    status: 201,
-    description: "Property created successfully",
-    type: Property,
-  })
-  @ApiConsumes("multipart/form-data")
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("operator", "admin")
-  @UseInterceptors(FilesInterceptor("images", 10, imageUploadOptions))
-  @Post("with-upload")
-  async createWithUpload(
-    @Body() createPropertyDto: CreatePropertyDto,
-    @UploadedFiles() files: Express.Multer.File[],
-    @Request() req
-  ) {
-    // Handle FormData arrays correctly - lifestyle_features[] comes as a single field
-    if (
-      createPropertyDto.lifestyle_features &&
-      typeof createPropertyDto.lifestyle_features === "string"
-    ) {
-      // If it's a single string, convert to array
-      createPropertyDto.lifestyle_features = [
-        createPropertyDto.lifestyle_features,
-      ];
-    }
-
-    // Convert uploaded files to URLs
-    const imageUrls = files
-      ? convertFilePathsToUrls(files, req.protocol + "://" + req.get("host"))
-      : [];
-
-    const propertyData = {
-      ...createPropertyDto,
-      images: imageUrls,
-    };
-
-    return await this.propertiesService.create(
-      propertyData,
-      req.user.id,
-      req.user.roles
-    );
   }
 }

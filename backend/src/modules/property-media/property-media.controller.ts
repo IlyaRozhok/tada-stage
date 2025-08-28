@@ -56,7 +56,10 @@ export class PropertyMediaController {
     return await this.propertyMediaService.uploadFile(
       propertyId,
       req.user.id,
-      file
+      file,
+      undefined,
+      undefined,
+      req.user.role
     );
   }
 
@@ -81,11 +84,15 @@ export class PropertyMediaController {
     @Param("mediaId") mediaId: string,
     @Request() req: any
   ): Promise<void> {
-    return await this.propertyMediaService.deleteMedia(mediaId, req.user.id);
+    return await this.propertyMediaService.deleteMedia(
+      mediaId,
+      req.user.id,
+      req.user.role
+    );
   }
 
   @Put("order")
-  @Auth("operator")
+  @Auth("operator", "admin")
   @ApiOperation({
     summary: "Update media display order",
     description: "Update the display order of media files for a property",
@@ -128,12 +135,13 @@ export class PropertyMediaController {
     return await this.propertyMediaService.updateMediaOrder(
       propertyId,
       user.id,
-      mediaOrders
+      mediaOrders,
+      user.role
     );
   }
 
   @Put(":mediaId/featured")
-  @Auth("operator")
+  @Auth("operator", "admin")
   @ApiOperation({
     summary: "Set media as featured",
     description: "Mark a media file as the featured image for the property",
@@ -155,7 +163,10 @@ export class PropertyMediaController {
     @Param("mediaId") mediaId: string,
     @CurrentUser() user: User
   ): Promise<PropertyMedia> {
-    return await this.propertyMediaService.setFeaturedMedia(mediaId, user.id);
+    return await this.propertyMediaService.setFeaturedMedia(
+      mediaId,
+      user.id,
+      user.role
+    );
   }
 }
- 

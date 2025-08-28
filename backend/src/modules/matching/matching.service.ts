@@ -71,10 +71,23 @@ export class MatchingService {
     userId: string,
     limit: number = 20
   ): Promise<Property[]> {
+    console.log(`🔍 Finding matched properties for user: ${userId}, limit: ${limit}`);
+    
     // Get user preferences
     const preferences = await this.preferencesRepository.findOne({
       where: { user_id: userId },
     });
+
+    console.log(`📋 User preferences found:`, preferences ? 'Yes' : 'No');
+    if (preferences) {
+      console.log(`📋 Preferences details:`, {
+        price_range: `${preferences.min_price}-${preferences.max_price}`,
+        bedrooms: `${preferences.min_bedrooms}-${preferences.max_bedrooms}`,
+        property_type: preferences.property_type,
+        furnishing: preferences.furnishing,
+        lifestyle_features: preferences.lifestyle_features?.length || 0
+      });
+    }
 
     // Get all properties
     const allProperties = await this.propertyRepository.find({
@@ -82,9 +95,13 @@ export class MatchingService {
       order: { created_at: "DESC" },
     });
 
+    console.log(`🏠 Total properties available: ${allProperties.length}`);
+
     if (!preferences) {
       // If no preferences set, return properties by date
-      return allProperties.slice(0, limit);
+      console.log(`⚠️ No preferences set, returning ${Math.min(limit, allProperties.length)} properties by date`);
+      const propertiesWithUrls = await this.updateMultiplePropertiesMediaUrls(allProperties.slice(0, limit));
+      return propertiesWithUrls;
     }
 
     // Apply only critical hard filters (price range if both min and max specified)
@@ -125,6 +142,17 @@ export class MatchingService {
     const matchedProperties = scoredProperties
       .slice(0, limit)
       .map((scored) => scored.property);
+
+    console.log(`✅ Returning ${matchedProperties.length} matched properties`);
+    if (scoredProperties.length > 0) {
+      console.log(`📊 Top 3 match scores:`, scoredProperties.slice(0, 3).map(s => ({
+        property_id: s.property.id,
+        score: Math.round(s.score * 100) / 100,
+        price: s.property.price,
+        bedrooms: s.property.bedrooms,
+        type: s.property.property_type
+      })));
+    }
 
     // Update presigned URLs for media files
     return await this.updateMultiplePropertiesMediaUrls(matchedProperties);
@@ -203,12 +231,16 @@ export class MatchingService {
     }
 
     // Property type match
-    if (preferences.property_type && preferences.property_type !== "any") {
-      scores.property_type =
-        property.property_type.toLowerCase() ===
-        preferences.property_type.toLowerCase()
-          ? 100
-          : 0;
+    if (
+      preferences.property_type &&
+      preferences.property_type.length > 0 &&
+      !preferences.property_type.includes("any")
+    ) {
+      scores.property_type = preferences.property_type
+        .map((type) => type.toLowerCase())
+        .includes(property.property_type.toLowerCase())
+        ? 100
+        : 0;
     }
 
     // Furnishing match
@@ -325,11 +357,14 @@ export class MatchingService {
     userId: string,
     limit: number = 10
   ): Promise<MatchingResult[]> {
+    console.log(`🔍 Getting detailed matches for user: ${userId}, limit: ${limit}`);
+    
     const preferences = await this.preferencesRepository.findOne({
       where: { user_id: userId },
     });
 
     if (!preferences) {
+      console.log(`⚠️ No preferences found, returning properties without scores`);
       const properties = await this.propertyRepository.find({
         relations: ["operator", "media"],
         order: { created_at: "DESC" },
@@ -340,17 +375,20 @@ export class MatchingService {
       const propertiesWithUrls =
         await this.updateMultiplePropertiesMediaUrls(properties);
 
-      return propertiesWithUrls.map((property) => ({
+      const result = propertiesWithUrls.map((property) => ({
         property,
         matchScore: 0,
         matchReasons: ["No preferences set"],
         perfectMatch: false,
       }));
+      
+      console.log(`✅ Returning ${result.length} properties without preferences`);
+      return result;
     }
 
     const properties = await this.findMatchedProperties(userId, limit * 2); // Get more to score them
 
-    return properties.slice(0, limit).map((property) => {
+    const result = properties.slice(0, limit).map((property) => {
       const score = this.calculateMatchScore(property, preferences);
       const reasons = this.getMatchReasons(property, preferences);
       const perfectMatch = this.isPerfectMatch(property, preferences);
@@ -362,6 +400,9 @@ export class MatchingService {
         perfectMatch,
       };
     });
+    
+    console.log(`✅ Returning ${result.length} detailed matches with scores`);
+    return result;
   }
 
   /**
@@ -398,9 +439,11 @@ export class MatchingService {
     // Property type match
     if (
       preferences.property_type &&
-      preferences.property_type !== "any" &&
-      property.property_type.toLowerCase() ===
-        preferences.property_type.toLowerCase()
+      preferences.property_type.length > 0 &&
+      !preferences.property_type.includes("any") &&
+      preferences.property_type
+        .map((type) => type.toLowerCase())
+        .includes(property.property_type.toLowerCase())
     ) {
       reasons.push(
         `Property type "${property.property_type}" matches preference`
@@ -521,10 +564,15 @@ export class MatchingService {
     }
 
     // Check property type
-    if (preferences.property_type && preferences.property_type !== "any") {
+    if (
+      preferences.property_type &&
+      preferences.property_type.length > 0 &&
+      !preferences.property_type.includes("any")
+    ) {
       if (
-        property.property_type.toLowerCase() !==
-        preferences.property_type.toLowerCase()
+        !preferences.property_type
+          .map((type) => type.toLowerCase())
+          .includes(property.property_type.toLowerCase())
       ) {
         return false;
       }

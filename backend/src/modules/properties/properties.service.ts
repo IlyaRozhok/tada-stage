@@ -12,6 +12,8 @@ import { Favourite } from "../../entities/favourite.entity";
 import { Shortlist } from "../../entities/shortlist.entity";
 import { User } from "../../entities/user.entity";
 import { S3Service } from "../../common/services/s3.service";
+import { TenantProfile } from "../../entities/tenant-profile.entity";
+import { UserRole } from "../../entities/user.entity";
 
 @Injectable()
 export class PropertiesService {
@@ -24,6 +26,7 @@ export class PropertiesService {
     private readonly shortlistRepository: Repository<Shortlist>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(TenantProfile)
     private readonly matchingService: MatchingService,
     private readonly s3Service: S3Service
   ) {}
@@ -62,6 +65,14 @@ export class PropertiesService {
     if (property.media && property.media.length > 0) {
       for (const media of property.media) {
         try {
+          // Skip S3 processing for test media (direct URLs from Unsplash)
+          if (
+            media.s3_key.startsWith("test-media/") ||
+            media.url?.includes("unsplash.com")
+          ) {
+            // Keep the existing URL for test data
+            continue;
+          }
           media.url = await this.s3Service.getPresignedUrl(media.s3_key);
         } catch (error) {
           console.error(
@@ -83,10 +94,42 @@ export class PropertiesService {
   private async updateMultiplePropertiesMediaUrls(
     properties: Property[]
   ): Promise<Property[]> {
-    for (const property of properties) {
-      await this.updateMediaPresignedUrls(property);
-    }
+    await Promise.all(
+      properties.map((property) => this.updateMediaPresignedUrls(property))
+    );
     return properties;
+  }
+
+  /**
+   * Add isShortlisted flag to properties for a specific user
+   */
+  private async addShortlistFlags(
+    properties: Property[],
+    userId?: string
+  ): Promise<any[]> {
+    if (!userId) {
+      return properties.map((p) => ({ ...p, isShortlisted: false }));
+    }
+
+    // Check if user is a tenant
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ["tenantProfile"],
+    });
+
+    if (!user || user.role !== UserRole.Tenant || !user.tenantProfile) {
+      return properties.map((p) => ({ ...p, isShortlisted: false }));
+    }
+
+    // Get shortlisted property IDs
+    const shortlistedIds = user.tenantProfile.shortlisted_properties || [];
+    const shortlistedSet = new Set(shortlistedIds);
+
+    // Add isShortlisted flag to each property
+    return properties.map((property) => ({
+      ...property,
+      isShortlisted: shortlistedSet.has(property.id),
+    }));
   }
 
   async findAll(
@@ -94,9 +137,10 @@ export class PropertiesService {
     limit: number = 10,
     search?: string,
     sortBy?: string,
-    order?: 'ASC' | 'DESC'
+    order?: "ASC" | "DESC",
+    userId?: string
   ): Promise<{
-    properties: Property[];
+    properties: any[];
     total: number;
     page: number;
     limit: number;
@@ -104,8 +148,11 @@ export class PropertiesService {
   }> {
     // Ensure page and limit are valid numbers
     const validPage = Math.max(1, Math.floor(Number(page)) || 1);
-    const validLimit = Math.max(1, Math.min(100, Math.floor(Number(limit)) || 10));
-    
+    const validLimit = Math.max(
+      1,
+      Math.min(100, Math.floor(Number(limit)) || 10)
+    );
+
     const queryBuilder = this.propertyRepository
       .createQueryBuilder("property")
       .leftJoinAndSelect("property.operator", "operator")
@@ -114,18 +161,18 @@ export class PropertiesService {
     // Handle sorting
     if (sortBy && order) {
       const validSortFields = {
-        'title': 'property.title',
-        'location': 'property.address', // Map location to address field
-        'price': 'property.price',
-        'bedrooms': 'property.bedrooms',
-        'bathrooms': 'property.bathrooms',
-        'property_type': 'property.property_type',
-        'created_at': 'property.created_at'
+        title: "property.title",
+        location: "property.address", // Map location to address field
+        price: "property.price",
+        bedrooms: "property.bedrooms",
+        bathrooms: "property.bathrooms",
+        property_type: "property.property_type",
+        created_at: "property.created_at",
       };
 
-      const sortField = validSortFields[sortBy] || 'property.created_at';
-      const sortOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-      
+      const sortField = validSortFields[sortBy] || "property.created_at";
+      const sortOrder = order.toUpperCase() === "ASC" ? "ASC" : "DESC";
+
       queryBuilder.orderBy(sortField, sortOrder);
     } else {
       // Default sorting
@@ -148,8 +195,14 @@ export class PropertiesService {
     const propertiesWithUrls =
       await this.updateMultiplePropertiesMediaUrls(properties);
 
+    // Add shortlist flags
+    const propertiesWithFlags = await this.addShortlistFlags(
+      propertiesWithUrls,
+      userId
+    );
+
     return {
-      properties: propertiesWithUrls,
+      properties: propertiesWithFlags,
       total,
       page: validPage,
       limit: validLimit,
@@ -157,7 +210,7 @@ export class PropertiesService {
     };
   }
 
-  async findOne(id: string): Promise<Property> {
+  async findOne(id: string, userId?: string): Promise<any> {
     const property = await this.propertyRepository.findOne({
       where: { id },
       relations: ["operator", "media"],
@@ -167,18 +220,38 @@ export class PropertiesService {
       throw new NotFoundException("Property not found");
     }
 
+    console.log("🏠 Backend - Property found:", property.id);
+    console.log("🖼️ Backend - Property media before URLs:", property.media);
+
     // Update presigned URLs for media
-    return await this.updateMediaPresignedUrls(property);
+    const propertyWithUrls = await this.updateMediaPresignedUrls(property);
+
+    console.log(
+      "🖼️ Backend - Property media after URLs:",
+      propertyWithUrls.media
+    );
+
+    // Add shortlist flag
+    const [propertyWithFlag] = await this.addShortlistFlags(
+      [propertyWithUrls],
+      userId
+    );
+
+    console.log("🖼️ Backend - Final property media:", propertyWithFlag.media);
+
+    return propertyWithFlag;
   }
 
-  async findByOperator(operatorId: string): Promise<Property[]> {
+  async findByOperator(operatorId: string, userId?: string): Promise<any[]> {
     const properties = await this.propertyRepository.find({
       where: { operator_id: operatorId },
       relations: ["media"],
       order: { created_at: "DESC" },
     });
 
-    return await this.updateMultiplePropertiesMediaUrls(properties);
+    const propertiesWithUrls =
+      await this.updateMultiplePropertiesMediaUrls(properties);
+    return await this.addShortlistFlags(propertiesWithUrls, userId);
   }
 
   async update(
@@ -251,14 +324,19 @@ export class PropertiesService {
     });
   }
 
-  async findFeaturedProperties(limit: number = 6): Promise<Property[]> {
+  async findFeaturedProperties(
+    limit: number = 6,
+    userId?: string
+  ): Promise<any[]> {
     const properties = await this.propertyRepository.find({
       relations: ["operator", "media"],
       order: { created_at: "DESC" },
       take: limit,
     });
 
-    return await this.updateMultiplePropertiesMediaUrls(properties);
+    const propertiesWithUrls =
+      await this.updateMultiplePropertiesMediaUrls(properties);
+    return await this.addShortlistFlags(propertiesWithUrls, userId);
   }
 
   async findMatchedProperties(

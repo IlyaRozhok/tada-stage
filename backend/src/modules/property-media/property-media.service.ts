@@ -81,7 +81,8 @@ export class PropertyMediaService {
     userId: string,
     file: Express.Multer.File,
     orderIndex?: number,
-    isFeatured?: boolean
+    isFeatured?: boolean,
+    userRole?: string
   ): Promise<PropertyMedia> {
     console.log("🔧 PropertyMediaService.uploadFile started");
     console.log("- propertyId:", propertyId);
@@ -102,13 +103,19 @@ export class PropertyMediaService {
         throw new NotFoundException("Property not found");
       }
 
-      if (property.operator_id !== userId) {
-        console.log("❌ Access denied - user does not own property");
+      // Allow admins to manage any property, otherwise check ownership
+      if (userRole !== "admin" && property.operator_id !== userId) {
+        console.log(
+          "❌ Access denied - user does not own property and is not admin"
+        );
+        console.log("- User role:", userRole);
+        console.log("- Property operator_id:", property.operator_id);
+        console.log("- User id:", userId);
         throw new ForbiddenException(
           "You can only upload media for your own properties"
         );
       }
-      console.log("✅ Property ownership verified");
+      console.log("✅ Property access verified (admin or owner)");
 
       // Validate file type
       console.log("🔍 Validating file type...");
@@ -216,7 +223,11 @@ export class PropertyMediaService {
   /**
    * Delete media file
    */
-  async deleteMedia(mediaId: string, userId: string): Promise<void> {
+  async deleteMedia(
+    mediaId: string,
+    userId: string,
+    userRole?: string
+  ): Promise<void> {
     const media = await this.propertyMediaRepository.findOne({
       where: { id: mediaId },
       relations: ["property"],
@@ -226,11 +237,20 @@ export class PropertyMediaService {
       throw new NotFoundException("Media not found");
     }
 
-    if (media.property.operator_id !== userId) {
+    // Allow admins to delete any media, otherwise check ownership
+    if (userRole !== "admin" && media.property.operator_id !== userId) {
+      console.log(
+        "❌ Delete access denied - user does not own property and is not admin"
+      );
+      console.log("- User role:", userRole);
+      console.log("- Property operator_id:", media.property.operator_id);
+      console.log("- User id:", userId);
       throw new ForbiddenException(
         "You can only delete media from your own properties"
       );
     }
+
+    console.log("✅ Delete access verified (admin or owner)");
 
     // Delete from S3
     await this.s3Service.deleteFile(media.s3_key);
@@ -245,7 +265,8 @@ export class PropertyMediaService {
   async updateMediaOrder(
     propertyId: string,
     userId: string,
-    mediaOrders: { id: string; order_index: number }[]
+    mediaOrders: { id: string; order_index: number }[],
+    userRole?: string
   ): Promise<PropertyMedia[]> {
     // Verify property ownership
     const property = await this.propertyRepository.findOne({
@@ -256,11 +277,20 @@ export class PropertyMediaService {
       throw new NotFoundException("Property not found");
     }
 
-    if (property.operator_id !== userId) {
+    // Allow admins to update any property, otherwise check ownership
+    if (userRole !== "admin" && property.operator_id !== userId) {
+      console.log(
+        "❌ Update order access denied - user does not own property and is not admin"
+      );
+      console.log("- User role:", userRole);
+      console.log("- Property operator_id:", property.operator_id);
+      console.log("- User id:", userId);
       throw new ForbiddenException(
         "You can only update media for your own properties"
       );
     }
+
+    console.log("✅ Update order access verified (admin or owner)");
 
     // Update order for each media
     for (const mediaOrder of mediaOrders) {
@@ -278,7 +308,8 @@ export class PropertyMediaService {
    */
   async setFeaturedMedia(
     mediaId: string,
-    userId: string
+    userId: string,
+    userRole?: string
   ): Promise<PropertyMedia> {
     const media = await this.propertyMediaRepository.findOne({
       where: { id: mediaId },
@@ -289,11 +320,20 @@ export class PropertyMediaService {
       throw new NotFoundException("Media not found");
     }
 
-    if (media.property.operator_id !== userId) {
+    // Allow admins to update any property, otherwise check ownership
+    if (userRole !== "admin" && media.property.operator_id !== userId) {
+      console.log(
+        "❌ Set featured access denied - user does not own property and is not admin"
+      );
+      console.log("- User role:", userRole);
+      console.log("- Property operator_id:", media.property.operator_id);
+      console.log("- User id:", userId);
       throw new ForbiddenException(
         "You can only update media for your own properties"
       );
     }
+
+    console.log("✅ Set featured access verified (admin or owner)");
 
     // Remove featured status from all media for this property
     await this.propertyMediaRepository.update(

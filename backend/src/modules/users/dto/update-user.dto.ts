@@ -7,7 +7,9 @@ import {
   IsBoolean,
   IsEmail,
   IsDateString,
+  IsEnum,
 } from "class-validator";
+import { UserRole, UserStatus } from "../../../entities/user.entity";
 
 export class UpdateUserDto {
   @ApiPropertyOptional({
@@ -39,7 +41,7 @@ export class UpdateUserDto {
     example: "1990-01-15",
   })
   @IsOptional()
-  @IsDateString()
+  @IsDateString({}, { message: "Date of birth must be a valid date string" })
   date_of_birth?: string;
 
   @ApiPropertyOptional({
@@ -154,12 +156,21 @@ export class UpdateUserDto {
 
   @ApiPropertyOptional({
     description: "Account status",
-    example: "active",
-    enum: ["active", "inactive", "suspended"],
+    example: UserStatus.Active,
+    enum: UserStatus,
   })
   @IsOptional()
-  @IsIn(["active", "inactive", "suspended"])
-  status?: string;
+  @IsEnum(UserStatus)
+  status?: UserStatus;
+
+  @ApiPropertyOptional({
+    description: "User role",
+    example: UserRole.Tenant,
+    enum: UserRole,
+  })
+  @IsOptional()
+  @IsEnum(UserRole)
+  role?: UserRole;
 
   // Operator-specific fields
   @ApiPropertyOptional({

@@ -20,10 +20,6 @@ export class S3Service {
   private keyPrefix: string;
 
   constructor(private configService: ConfigService) {
-    // const accessKeyId = this.configService.get<string>("AWS_ACCESS_KEY_ID");
-    // const secretAccessKey = this.configService.get<string>(
-    //   "AWS_SECRET_ACCESS_KEY"
-    // );
 
     const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
     const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
@@ -32,22 +28,6 @@ export class S3Service {
     const bucketName =
       this.configService.get<string>("AWS_S3_BUCKET_NAME") ||
       "tada-media-bucket-local";
-
-    console.log(
-      "- System AWS_SECRET_ACCESS_KEY:",
-      process.env.AWS_SECRET_ACCESS_KEY
-        ? "***" + process.env.AWS_SECRET_ACCESS_KEY.slice(-4)
-        : "Not set"
-    );
-
-    console.log("🔧 S3Service constructor:");
-    console.log(
-      "- Using ConfigService Access Key ID:",
-      accessKeyId?.substring(0, 10) + "..."
-    );
-    console.log("- Using ConfigService Secret Key set:", !!secretAccessKey);
-    console.log("- Using ConfigService Region:", region);
-    console.log("- Using ConfigService Bucket:", bucketName);
 
     if (!accessKeyId || !secretAccessKey) {
       if (process.env.NODE_ENV !== "production") {
@@ -92,17 +72,11 @@ export class S3Service {
     mimeType: string,
     originalFilename: string
   ): Promise<S3UploadResult> {
-    console.log("🔧 S3Service.uploadFile started");
-    console.log("- key:", key);
-    console.log("- mimeType:", mimeType);
-    console.log("- originalFilename:", originalFilename);
-    console.log("- buffer size:", buffer.length);
+
 
     try {
       // Add prefix to key
       const fullKey = `${this.keyPrefix}${key}`;
-      console.log("- fullKey:", fullKey);
-      console.log("- bucket:", this.bucketName);
 
       const command = new PutObjectCommand({
         Bucket: this.bucketName,
@@ -115,14 +89,11 @@ export class S3Service {
         },
       });
 
-      console.log("🔧 Sending PutObjectCommand to S3...");
       await this.s3Client.send(command);
       console.log("✅ S3 upload successful");
 
       // Generate presigned URL for secure access
-      console.log("🔧 Generating presigned URL...");
       const url = await this.getPresignedUrl(fullKey);
-      console.log("✅ Presigned URL generated:", url.substring(0, 100) + "...");
 
       return {
         url,

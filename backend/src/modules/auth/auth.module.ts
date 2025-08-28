@@ -8,7 +8,6 @@ import { AuthService } from "./auth.service";
 import { AuthController } from "./auth.controller";
 import { JwtStrategy } from "./strategies/jwt.strategy";
 import { GoogleStrategy } from "./strategies/google.strategy";
-import { PendingGoogleRegistrationService } from "./services/pending-google-registration.service";
 import { User } from "../../entities/user.entity";
 import { TenantProfile } from "../../entities/tenant-profile.entity";
 import { OperatorProfile } from "../../entities/operator-profile.entity";
@@ -36,12 +35,7 @@ import { Preferences } from "../../entities/preferences.entity";
     ConfigModule,
   ],
   controllers: [AuthController],
-  providers: [
-    AuthService,
-    JwtStrategy,
-    GoogleStrategy,
-    PendingGoogleRegistrationService,
-  ],
+  providers: [AuthService, JwtStrategy, GoogleStrategy],
   exports: [
     AuthService,
     JwtStrategy,

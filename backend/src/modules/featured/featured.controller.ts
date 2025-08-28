@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from "@nestjs/common";
+import { Controller, Get, Query, Request } from "@nestjs/common";
 import { FeaturedService } from "./featured.service";
 
 @Controller("featured")
@@ -11,8 +11,8 @@ export class FeaturedController {
   }
 
   @Get("properties")
-  async getFeaturedProperties(@Query("limit") limit?: number) {
-    return this.featuredService.getFeaturedProperties(limit || 6);
+  async getFeaturedProperties(@Request() req, @Query("limit") limit?: number) {
+    return this.featuredService.getFeaturedProperties(limit || 6, req?.user?.id);
   }
 
   @Get("home-cards")

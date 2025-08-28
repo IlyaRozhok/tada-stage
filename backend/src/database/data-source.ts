@@ -26,9 +26,9 @@ export const dataSourceOptions: DataSourceOptions = {
     Favourite,
   ],
   migrations: [__dirname + "/migrations/*{.ts,.js}"],
-  synchronize: true,
+  synchronize: process.env.NODE_ENV === "development",
   logging: process.env.NODE_ENV === "development",
-  ssl: false,
+  ssl: process.env.NODE_ENV === "production",
 };
 
 const dataSource = new DataSource(dataSourceOptions);

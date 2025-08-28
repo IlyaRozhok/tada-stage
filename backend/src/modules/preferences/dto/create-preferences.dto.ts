@@ -23,18 +23,92 @@ export class CreatePreferencesDto {
 
   @ApiPropertyOptional({
     description: "Secondary location preference",
-    example: "Central London",
+    example: "kings-cross-st-pancras",
+    enum: [
+      "kings-cross-st-pancras",
+      "oxford-circus",
+      "liverpool-street",
+      "paddington",
+      "waterloo",
+      "victoria",
+      "green-park",
+      "bond-street",
+      "baker-street",
+      "canary-wharf",
+      "london-bridge",
+      "tottenham-court-road",
+      "leicester-square",
+      "piccadilly-circus",
+      "euston",
+      "no-preference",
+    ],
   })
   @IsOptional()
-  @IsString()
+  @IsIn([
+    "kings-cross-st-pancras",
+    "oxford-circus",
+    "liverpool-street",
+    "paddington",
+    "waterloo",
+    "victoria",
+    "green-park",
+    "bond-street",
+    "baker-street",
+    "canary-wharf",
+    "london-bridge",
+    "tottenham-court-road",
+    "leicester-square",
+    "piccadilly-circus",
+    "euston",
+    "no-preference",
+    "",
+    null,
+  ])
   secondary_location?: string;
 
   @ApiPropertyOptional({
     description: "Location to commute to",
-    example: "Canary Wharf",
+    example: "canary-wharf",
+    enum: [
+      "canary-wharf",
+      "city-of-london",
+      "westminster",
+      "shoreditch",
+      "kings-cross",
+      "paddington",
+      "south-bank",
+      "mayfair",
+      "holborn",
+      "clerkenwell",
+      "bermondsey",
+      "stratford",
+      "hammersmith",
+      "croydon",
+      "central-london",
+      "no-preference",
+    ],
   })
   @IsOptional()
-  @IsString()
+  @IsIn([
+    "canary-wharf",
+    "city-of-london",
+    "westminster",
+    "shoreditch",
+    "kings-cross",
+    "paddington",
+    "south-bank",
+    "mayfair",
+    "holborn",
+    "clerkenwell",
+    "bermondsey",
+    "stratford",
+    "hammersmith",
+    "croydon",
+    "central-london",
+    "no-preference",
+    "",
+    null,
+  ])
   commute_location?: string;
 
   @ApiPropertyOptional({
@@ -77,6 +151,14 @@ export class CreatePreferencesDto {
   @IsOptional()
   @IsDateString()
   move_in_date?: string;
+
+  @ApiPropertyOptional({
+    description: "Preferred move-out date",
+    example: "2024-09-01",
+  })
+  @IsOptional()
+  @IsDateString()
+  move_out_date?: string;
 
   @ApiPropertyOptional({
     description: "Minimum rent price per month",
@@ -145,10 +227,17 @@ export class CreatePreferencesDto {
   @ApiPropertyOptional({
     description: "Furnishing preference",
     example: "furnished",
-    enum: ["furnished", "unfurnished", "part-furnished"],
+    enum: ["furnished", "unfurnished", "part-furnished", "no-preference"],
   })
   @IsOptional()
-  @IsIn(["furnished", "unfurnished", "part-furnished", "", null])
+  @IsIn([
+    "furnished",
+    "unfurnished",
+    "part-furnished",
+    "no-preference",
+    "",
+    null,
+  ])
   furnishing?: string;
 
   @ApiPropertyOptional({
@@ -169,13 +258,14 @@ export class CreatePreferencesDto {
   let_duration?: string;
 
   @ApiPropertyOptional({
-    description: "Preferred property type",
-    example: "flats",
-    enum: ["any", "flats", "houses", "studio", "others"],
+    description: "Preferred property types",
+    example: ["flats", "houses"],
+    type: [String],
   })
   @IsOptional()
-  @IsIn(["any", "flats", "houses", "studio", "others", "", null])
-  property_type?: string;
+  @IsArray()
+  @IsString({ each: true })
+  property_type?: string[];
 
   @ApiPropertyOptional({
     description: "Building style preferences",
@@ -298,29 +388,31 @@ export class CreatePreferencesDto {
   hobbies?: string[];
 
   @ApiPropertyOptional({
-    description: "Ideal living environment preference",
-    example: "quiet-professional",
+    description: "Ideal living environment preferences (array)",
+    example: ["quiet-professional", "social-friendly"],
+    type: [String],
     enum: [
       "quiet-professional",
       "social-friendly",
       "family-oriented",
       "student-lifestyle",
       "creative-artistic",
-      "no-preference",
     ],
   })
   @IsOptional()
-  @IsIn([
-    "quiet-professional",
-    "social-friendly",
-    "family-oriented",
-    "student-lifestyle",
-    "creative-artistic",
-    "no-preference",
-    "",
-    null,
-  ])
-  ideal_living_environment?: string;
+  @IsArray()
+  @IsString({ each: true })
+  @IsIn(
+    [
+      "quiet-professional",
+      "social-friendly",
+      "family-oriented",
+      "student-lifestyle",
+      "creative-artistic",
+    ],
+    { each: true }
+  )
+  ideal_living_environment?: string[];
 
   @ApiPropertyOptional({
     description: "Pet ownership information",
@@ -332,12 +424,27 @@ export class CreatePreferencesDto {
   pets?: string;
 
   @ApiPropertyOptional({
-    description: "Whether the user is a smoker",
-    example: false,
+    description: "Smoking preference",
+    example: "no",
+    enum: [
+      "no",
+      "yes",
+      "no-but-okay",
+      "no-prefer-non-smoking",
+      "no-preference",
+    ],
   })
   @IsOptional()
-  @IsBoolean()
-  smoker?: boolean;
+  @IsIn([
+    "no",
+    "yes",
+    "no-but-okay",
+    "no-prefer-non-smoking",
+    "no-preference",
+    "",
+    null,
+  ])
+  smoker?: string;
 
   @ApiPropertyOptional({
     description: "Additional information about the user",

@@ -29,14 +29,50 @@ export class Preferences {
 
   @ApiProperty({
     description: "Secondary location preference",
-    example: "Central London",
+    example: "kings-cross-st-pancras",
+    enum: [
+      "kings-cross-st-pancras",
+      "oxford-circus",
+      "liverpool-street",
+      "paddington",
+      "waterloo",
+      "victoria",
+      "green-park",
+      "bond-street",
+      "baker-street",
+      "canary-wharf",
+      "london-bridge",
+      "tottenham-court-road",
+      "leicester-square",
+      "piccadilly-circus",
+      "euston",
+      "no-preference",
+    ],
   })
   @Column({ nullable: true })
   secondary_location: string;
 
   @ApiProperty({
     description: "Location to commute to",
-    example: "Canary Wharf",
+    example: "canary-wharf",
+    enum: [
+      "canary-wharf",
+      "city-of-london",
+      "westminster",
+      "shoreditch",
+      "kings-cross",
+      "paddington",
+      "south-bank",
+      "mayfair",
+      "holborn",
+      "clerkenwell",
+      "bermondsey",
+      "stratford",
+      "hammersmith",
+      "croydon",
+      "central-london",
+      "no-preference",
+    ],
   })
   @Column({ nullable: true })
   commute_location: string;
@@ -65,6 +101,13 @@ export class Preferences {
   @ApiProperty({ description: "Preferred move-in date", example: "2024-03-01" })
   @Column({ type: "date", nullable: true })
   move_in_date: Date;
+
+  @ApiProperty({
+    description: "Preferred move-out date",
+    example: "2024-09-01",
+  })
+  @Column({ type: "date", nullable: true })
+  move_out_date: Date;
 
   @ApiProperty({ description: "Minimum rent price per month", example: 1500 })
   @Column({ type: "int", nullable: true })
@@ -105,7 +148,7 @@ export class Preferences {
   @ApiProperty({
     description: "Furnishing preference",
     example: "furnished",
-    enum: ["furnished", "unfurnished", "part-furnished"],
+    enum: ["furnished", "unfurnished", "part-furnished", "no-preference"],
   })
   @Column({ nullable: true })
   furnishing: string;
@@ -119,12 +162,12 @@ export class Preferences {
   let_duration: string;
 
   @ApiProperty({
-    description: "Preferred property type",
-    example: "apartment",
-    enum: ["any", "flats", "houses", "studio", "others"],
+    description: "Preferred property types",
+    example: ["flats", "houses"],
+    type: [String],
   })
-  @Column({ nullable: true })
-  property_type: string;
+  @Column("simple-array", { nullable: true })
+  property_type: string[];
 
   @ApiProperty({
     description: "Building style preferences",
@@ -220,19 +263,19 @@ export class Preferences {
   hobbies: string[];
 
   @ApiProperty({
-    description: "Ideal living environment preference",
-    example: "quiet-professional",
+    description: "Ideal living environment preferences (array)",
+    example: ["quiet-professional", "social-friendly"],
+    type: [String],
     enum: [
       "quiet-professional",
       "social-friendly",
       "family-oriented",
       "student-lifestyle",
       "creative-artistic",
-      "no-preference",
     ],
   })
-  @Column({ nullable: true })
-  ideal_living_environment: string;
+  @Column({ type: "json", nullable: true })
+  ideal_living_environment: string[];
 
   @ApiProperty({
     description: "Pet ownership information",
@@ -243,11 +286,18 @@ export class Preferences {
   pets: string;
 
   @ApiProperty({
-    description: "Whether the user is a smoker",
-    example: false,
+    description: "Smoking preference",
+    example: "no",
+    enum: [
+      "no",
+      "yes",
+      "no-but-okay",
+      "no-prefer-non-smoking",
+      "no-preference",
+    ],
   })
-  @Column({ type: "boolean", nullable: true })
-  smoker: boolean;
+  @Column({ nullable: true })
+  smoker: string;
 
   @ApiProperty({
     description: "Additional information about the user",

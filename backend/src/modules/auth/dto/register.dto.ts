@@ -8,7 +8,9 @@ import {
   IsIn,
   IsArray,
   IsInt,
+  IsEnum,
 } from "class-validator";
+import { UserRole } from "../../../entities/user.entity";
 
 export class RegisterDto {
   @ApiProperty({
@@ -38,13 +40,13 @@ export class RegisterDto {
 
   @ApiProperty({
     description: "User role (admin, operator, tenant)",
-    example: "tenant",
-    enum: ["admin", "operator", "tenant"],
+    example: UserRole.Tenant,
+    enum: UserRole,
     required: false,
   })
   @IsOptional()
-  @IsIn(["admin", "operator", "tenant"])
-  role?: string = "tenant";
+  @IsEnum(UserRole)
+  role?: UserRole = UserRole.Tenant;
 
   @ApiProperty({
     description: "Age range of the user",

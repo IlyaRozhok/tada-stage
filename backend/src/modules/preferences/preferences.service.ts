@@ -7,7 +7,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 
 import { Preferences } from "../../entities/preferences.entity";
-import { User } from "../../entities/user.entity";
+import { User, UserRole } from "../../entities/user.entity";
 import { CreatePreferencesDto } from "./dto/create-preferences.dto";
 import { UpdatePreferencesDto } from "./dto/update-preferences.dto";
 
@@ -24,6 +24,9 @@ export class PreferencesService {
     userId: string,
     preferencesDto: CreatePreferencesDto
   ): Promise<Preferences> {
+    console.log("🆕 Creating preferences for user:", userId);
+    console.log("📝 Create data received:", preferencesDto);
+
     // Check if user is a tenant (not an operator)
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) {
@@ -31,7 +34,7 @@ export class PreferencesService {
     }
 
     if (
-      user.role === "operator" ||
+      user.role === UserRole.Operator ||
       (user.roles && user.roles.includes("operator"))
     ) {
       throw new ForbiddenException("Only tenants can set preferences");
@@ -42,32 +45,71 @@ export class PreferencesService {
       where: { user: { id: userId } },
     });
 
-    // Convert date string to Date object if provided
+    // Convert date strings to Date objects if provided
+    const moveInDate = preferencesDto.move_in_date
+      ? new Date(preferencesDto.move_in_date)
+      : undefined;
+
+    let moveOutDate = preferencesDto.move_out_date
+      ? new Date(preferencesDto.move_out_date)
+      : preferencesDto.hasOwnProperty("move_out_date") &&
+          preferencesDto.move_out_date === null
+        ? null
+        : undefined;
+
+    // If move_out_date is the same as move_in_date, set it to null (single date selection)
+    // Only compare if both dates are valid Date objects
+    if (
+      moveInDate &&
+      moveOutDate &&
+      moveInDate instanceof Date &&
+      moveOutDate instanceof Date &&
+      moveInDate.getTime() === moveOutDate.getTime()
+    ) {
+      moveOutDate = null;
+    }
+
     const preferencesData = {
       ...preferencesDto,
-      move_in_date: preferencesDto.move_in_date
-        ? new Date(preferencesDto.move_in_date)
-        : undefined,
+      move_in_date: moveInDate,
+      move_out_date: moveOutDate,
     };
+
+    console.log("💾 Final create data:", preferencesData);
 
     if (existingPreferences) {
       // Update existing preferences
       Object.assign(existingPreferences, preferencesData);
-      return await this.preferencesRepository.save(existingPreferences);
+      try {
+        const result =
+          await this.preferencesRepository.save(existingPreferences);
+        console.log("✅ Existing preferences updated successfully");
+        return result;
+      } catch (error) {
+        console.error("❌ Error updating existing preferences:", error);
+        throw error;
+      }
     } else {
       // Create new preferences
       const preferences = this.preferencesRepository.create({
         ...preferencesData,
         user,
       });
-      const savedPreferences =
-        await this.preferencesRepository.save(preferences);
 
-      // Update user's preferences relation
-      user.preferences = savedPreferences;
-      await this.userRepository.save(user);
+      try {
+        const savedPreferences =
+          await this.preferencesRepository.save(preferences);
 
-      return savedPreferences;
+        // Update user's preferences relation
+        user.preferences = savedPreferences;
+        await this.userRepository.save(user);
+
+        console.log("✅ New preferences created successfully");
+        return savedPreferences;
+      } catch (error) {
+        console.error("❌ Error creating new preferences:", error);
+        throw error;
+      }
     }
   }
 
@@ -134,23 +176,87 @@ export class PreferencesService {
     userId: string,
     updatePreferencesDto: UpdatePreferencesDto
   ): Promise<Preferences> {
+    console.log("🔄 Updating preferences for user:", userId);
+    console.log("📝 Update data received:", updatePreferencesDto);
+
     const preferences = await this.findByUserId(userId);
 
     if (!preferences) {
       throw new NotFoundException("Preferences not found");
     }
 
-    // Convert date string to Date object if provided
+    // Convert date strings to Date objects if provided
+    console.log(
+      "📅 Processing dates - move_in_date:",
+      updatePreferencesDto.move_in_date
+    );
+    console.log(
+      "📅 Processing dates - move_out_date:",
+      updatePreferencesDto.move_out_date
+    );
+    console.log("📅 Existing dates - move_in_date:", preferences.move_in_date);
+    console.log(
+      "📅 Existing dates - move_out_date:",
+      preferences.move_out_date
+    );
+
+    const moveInDate = updatePreferencesDto.move_in_date
+      ? new Date(updatePreferencesDto.move_in_date)
+      : preferences.move_in_date;
+
+    let moveOutDate = updatePreferencesDto.move_out_date
+      ? new Date(updatePreferencesDto.move_out_date)
+      : updatePreferencesDto.hasOwnProperty("move_out_date") &&
+          updatePreferencesDto.move_out_date === null
+        ? null
+        : preferences.move_out_date;
+
+    console.log("📅 Final processed dates - move_in_date:", moveInDate);
+    console.log("📅 Final processed dates - move_out_date:", moveOutDate);
+    console.log(
+      "📅 moveInDate type:",
+      typeof moveInDate,
+      "instanceof Date:",
+      moveInDate instanceof Date
+    );
+    console.log(
+      "📅 moveOutDate type:",
+      typeof moveOutDate,
+      "instanceof Date:",
+      moveOutDate instanceof Date
+    );
+
+    // If move_out_date is the same as move_in_date, set it to null (single date selection)
+    // Only compare if both dates are valid Date objects
+    if (
+      moveInDate &&
+      moveOutDate &&
+      moveInDate instanceof Date &&
+      moveOutDate instanceof Date &&
+      moveInDate.getTime() === moveOutDate.getTime()
+    ) {
+      console.log("📅 Same dates detected, setting move_out_date to null");
+      moveOutDate = null;
+    }
+
     const updateData = {
       ...updatePreferencesDto,
-      move_in_date: updatePreferencesDto.move_in_date
-        ? new Date(updatePreferencesDto.move_in_date)
-        : preferences.move_in_date,
+      move_in_date: moveInDate,
+      move_out_date: moveOutDate,
     };
+
+    console.log("💾 Final update data:", updateData);
 
     Object.assign(preferences, updateData);
 
-    return this.preferencesRepository.save(preferences);
+    try {
+      const result = await this.preferencesRepository.save(preferences);
+      console.log("✅ Preferences saved successfully");
+      return result;
+    } catch (error) {
+      console.error("❌ Error saving preferences:", error);
+      throw error;
+    }
   }
 
   async delete(userId: string): Promise<void> {

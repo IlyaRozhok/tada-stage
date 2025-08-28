@@ -8,7 +8,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, In } from "typeorm";
 import { Property } from "../../entities/property.entity";
 import { TenantProfile } from "../../entities/tenant-profile.entity";
-import { User } from "../../entities/user.entity";
+import { User, UserRole } from "../../entities/user.entity";
 import { S3Service } from "../../common/services/s3.service";
 
 @Injectable()
@@ -73,7 +73,7 @@ export class ShortlistService {
       throw new NotFoundException("User not found");
     }
 
-    if (user.role !== "tenant") {
+    if (user.role !== UserRole.Tenant) {
       throw new BadRequestException("Only tenants can have shortlists");
     }
 
@@ -103,9 +103,12 @@ export class ShortlistService {
     // Initialize shortlisted_properties if null
     const currentShortlist = tenantProfile.shortlisted_properties || [];
 
-    // Check if already shortlisted
+    // Check if already shortlisted - if yes, just return success (idempotent operation)
     if (currentShortlist.includes(propertyId)) {
-      throw new ConflictException("Property already in shortlist");
+      return {
+        success: true,
+        message: "Property already in shortlist",
+      };
     }
 
     // Add to shortlist
@@ -130,9 +133,12 @@ export class ShortlistService {
     // Initialize shortlisted_properties if null
     const currentShortlist = tenantProfile.shortlisted_properties || [];
 
-    // Check if property is in shortlist
+    // Check if property is in shortlist - if not, just return success (idempotent operation)
     if (!currentShortlist.includes(propertyId)) {
-      throw new NotFoundException("Property not found in shortlist");
+      return {
+        success: true,
+        message: "Property not in shortlist (already removed)",
+      };
     }
 
     // Remove from shortlist

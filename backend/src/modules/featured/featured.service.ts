@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Property } from "../../entities/property.entity";
+import { PropertiesService } from "../properties/properties.service";
 
 export interface ResidentialComplex {
   id: string;
@@ -48,7 +49,8 @@ export interface HomeCard {
 export class FeaturedService {
   constructor(
     @InjectRepository(Property)
-    private propertyRepository: Repository<Property>
+    private propertyRepository: Repository<Property>,
+    private propertiesService: PropertiesService
   ) {}
 
   async getFeaturedResidentialComplexes(
@@ -128,13 +130,12 @@ export class FeaturedService {
     return complexes.slice(0, limit);
   }
 
-  async getFeaturedProperties(limit: number = 6): Promise<Property[]> {
-    // Get actual featured properties from database
-    return this.propertyRepository.find({
-      take: limit,
-      order: { created_at: "DESC" },
-      relations: ["media"],
-    });
+  async getFeaturedProperties(
+    limit: number = 6,
+    userId?: string
+  ): Promise<any[]> {
+    // Use PropertiesService to get featured properties with shortlist flags
+    return this.propertiesService.findFeaturedProperties(limit, userId);
   }
 
   async getHomeCards(): Promise<HomeCard[]> {

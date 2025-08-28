@@ -73,7 +73,13 @@ export class PreferencesController {
     @CurrentUser() user: User,
     @Body() createPreferencesDto: CreatePreferencesDto
   ): Promise<Preferences> {
-    return this.preferencesService.upsert(user.id, createPreferencesDto);
+    console.log("📥 Received preferences data:", createPreferencesDto);
+    const result = await this.preferencesService.upsert(
+      user.id,
+      createPreferencesDto
+    );
+    console.log("💾 Saved preferences:", result);
+    return result;
   }
 
   @Get()
@@ -89,7 +95,9 @@ export class PreferencesController {
     description: "Preferences not found",
   })
   async findMy(@CurrentUser() user: User): Promise<Preferences | null> {
-    return this.preferencesService.findByUserId(user.id);
+    const preferences = await this.preferencesService.findByUserId(user.id);
+    console.log("📤 Returning preferences for user:", user.id, preferences);
+    return preferences;
   }
 
   @Put()

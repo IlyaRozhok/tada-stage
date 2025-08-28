@@ -35,6 +35,17 @@ export class OperatorProfile {
   phone: string;
 
   @ApiProperty({
+    description: "Operator date of birth",
+    example: "1990-01-15",
+  })
+  @Column({ type: "date", nullable: true })
+  date_of_birth: Date;
+
+  @ApiProperty({ description: "Operator nationality", example: "British" })
+  @Column({ nullable: true })
+  nationality: string;
+
+  @ApiProperty({
     description: "Business address",
     example: "123 Business St, London",
   })
