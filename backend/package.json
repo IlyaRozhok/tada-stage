@@ -2,7 +2,7 @@
   "name": "rental-platform-backend",
   "version": "1.0.0",
   "description": "NestJS backend for rental platform",
-  "main": "dist/src/main.js",
+  "main": "dist/main.js",
   "scripts": {
     "build": "tsc -p tsconfig.json && tsc-alias -p tsconfig.json",
     "dev": "nest start --watch",
