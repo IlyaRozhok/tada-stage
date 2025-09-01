@@ -1,20 +1,20 @@
 services:
   backend:
-  build:
-    context: ./backend
-    dockerfile: Dockerfile
-  container_name: tada-backend-stage
-  ports:
-    - "3002:3002"
-  env_file:
-    - ./backend/.env.stage
-  environment:
-    - PORT=3002
-  command: node dist/src/main.js
-  networks:
-    - rental_network_stage
-  extra_hosts:
-    - "host.docker.internal:host-gateway"
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tada-backend-stage
+    ports:
+      - "3002:3002"
+    env_file:
+      - ./backend/.env.stage
+    environment:
+      - PORT=3002
+    command: node dist/src/main.js
+    networks:
+      - rental_network_stage
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 networks:
-rental_network:
+  rental_network_stage:
