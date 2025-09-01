@@ -1,18 +1,4 @@
 services:
-  postgres:
-    image: postgres:16
-    container_name: pg16-local
-    environment:
-      POSTGRES_DB: rental_platform
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - rental_network_stage
-
   backend:
     build:
       context: ./backend
