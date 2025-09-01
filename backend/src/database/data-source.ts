@@ -8,7 +8,7 @@ import { Property } from "../entities/property.entity";
 import { PropertyMedia } from "../entities/property-media.entity";
 import { Shortlist } from "../entities/shortlist.entity";
 import { Favourite } from "../entities/favourite.entity";
-import path from "path";
+import * as path from "path";
 
 // Load environment variables
 config({ path: ".env.local" });
