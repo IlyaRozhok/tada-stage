@@ -71,13 +71,6 @@ export class User {
   status: UserStatus;
 
   @ApiProperty({
-    description: "User full name",
-    example: "John Doe",
-  })
-  @Column({ nullable: true })
-  full_name: string;
-
-  @ApiProperty({
     description: "Authentication provider",
     example: "local",
     enum: ["local", "google"],
@@ -114,6 +107,13 @@ export class User {
   @UpdateDateColumn()
   updated_at: Date;
 
+  @ApiProperty({
+    description: "User full name (for backward compatibility)",
+    example: "John Doe",
+  })
+  @Column({ nullable: true })
+  full_name: string;
+
   // Relations
   @OneToOne(() => Preferences, (preferences) => preferences.user, {
     cascade: true,
@@ -136,5 +136,19 @@ export class User {
   // Computed property for backward compatibility
   get roles(): string[] {
     return [this.role];
+  }
+
+  // Computed property for full_name from profiles (fallback)
+  get computed_full_name(): string | null {
+    if (this.full_name) {
+      return this.full_name;
+    }
+    if (this.tenantProfile?.full_name) {
+      return this.tenantProfile.full_name;
+    }
+    if (this.operatorProfile?.full_name) {
+      return this.operatorProfile.full_name;
+    }
+    return null;
   }
 }

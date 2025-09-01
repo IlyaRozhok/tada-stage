@@ -18,22 +18,14 @@ export class UsersService {
     @InjectRepository(TenantProfile)
     private tenantProfileRepository: Repository<TenantProfile>,
     @InjectRepository(OperatorProfile)
-    private operatorProfileRepository: Repository<OperatorProfile>
+    private operatorProfileRepository: Repository<OperatorProfile>,
   ) {}
 
   async findOne(id: string): Promise<User> {
     const user = await this.userRepository.findOne({
       where: { id },
       relations: ["preferences", "tenantProfile", "operatorProfile"],
-      select: [
-        "id",
-        "email",
-        "role",
-        "status",
-        "full_name",
-        "created_at",
-        "updated_at",
-      ],
+      select: ["id", "email", "role", "status", "created_at", "updated_at"],
     });
 
     if (!user) {
@@ -56,7 +48,11 @@ export class UsersService {
     // Update user basic info
     if (updateUserDto.email) user.email = updateUserDto.email;
     if (updateUserDto.status) user.status = updateUserDto.status;
-    if (updateUserDto.full_name) user.full_name = updateUserDto.full_name;
+    if (updateUserDto.full_name && user.tenantProfile) {
+      user.tenantProfile.full_name = updateUserDto.full_name;
+    } else if (updateUserDto.full_name && user.operatorProfile) {
+      user.operatorProfile.full_name = updateUserDto.full_name;
+    }
 
     // Update profile based on role
     if (user.role === UserRole.Tenant && user.tenantProfile) {
@@ -66,7 +62,7 @@ export class UsersService {
         updateUserDto.date_of_birth.trim() !== ""
       )
         user.tenantProfile.date_of_birth = new Date(
-          updateUserDto.date_of_birth
+          updateUserDto.date_of_birth,
         );
       if (updateUserDto.nationality)
         user.tenantProfile.nationality = updateUserDto.nationality;
@@ -80,11 +76,15 @@ export class UsersService {
         user.tenantProfile.work_style = updateUserDto.work_style;
       if (updateUserDto.lifestyle)
         user.tenantProfile.lifestyle = updateUserDto.lifestyle;
-      if (updateUserDto.pets) user.tenantProfile.pets = updateUserDto.pets;
-      if (updateUserDto.smoker !== undefined)
-        user.tenantProfile.smoker = updateUserDto.smoker;
-      if (updateUserDto.hobbies)
-        user.tenantProfile.hobbies = updateUserDto.hobbies;
+      if (updateUserDto.pets && user.preferences) {
+        user.preferences.pets = updateUserDto.pets;
+      }
+      if (updateUserDto.smoker !== undefined && user.preferences) {
+        user.preferences.smoker = updateUserDto.smoker ? "yes" : "no";
+      }
+      if (updateUserDto.hobbies && user.preferences) {
+        user.preferences.hobbies = updateUserDto.hobbies;
+      }
       if (updateUserDto.ideal_living_environment)
         user.tenantProfile.ideal_living_environment =
           updateUserDto.ideal_living_environment;
@@ -99,7 +99,7 @@ export class UsersService {
         updateUserDto.date_of_birth.trim() !== ""
       )
         user.operatorProfile.date_of_birth = new Date(
-          updateUserDto.date_of_birth
+          updateUserDto.date_of_birth,
         );
       if (updateUserDto.nationality)
         user.operatorProfile.nationality = updateUserDto.nationality;
@@ -121,15 +121,7 @@ export class UsersService {
     return this.userRepository.findOne({
       where: { email },
       relations: ["preferences", "tenantProfile", "operatorProfile"],
-      select: [
-        "id",
-        "email",
-        "role",
-        "status",
-        "full_name",
-        "created_at",
-        "updated_at",
-      ],
+      select: ["id", "email", "role", "status", "created_at", "updated_at"],
     });
   }
 
@@ -183,7 +175,7 @@ export class UsersService {
 
     // Check if full_name column exists in users table
     const hasFullNameColumn = await this.userRepository.manager.query(`
-      SELECT column_name FROM information_schema.columns 
+      SELECT column_name FROM information_schema.columns
       WHERE table_name = 'users' AND column_name = 'full_name'
     `);
 
@@ -199,13 +191,13 @@ export class UsersService {
           "user.full_name ILIKE :search OR user.email ILIKE :search",
           {
             search: `%${search}%`,
-          }
+          },
         );
       } else {
         // Fallback to profile names if full_name doesn't exist yet
         query.where(
           "tenantProfile.full_name ILIKE :search OR operatorProfile.full_name ILIKE :search OR user.email ILIKE :search",
-          { search: `%${search}%` }
+          { search: `%${search}%` },
         );
       }
     }
@@ -256,7 +248,13 @@ export class UsersService {
     // Update basic user fields
     if (dto.email !== undefined) user.email = dto.email;
     if (dto.status !== undefined) user.status = dto.status;
-    if (dto.full_name !== undefined) user.full_name = dto.full_name;
+    if (dto.full_name !== undefined) {
+      if (user.tenantProfile) {
+        user.tenantProfile.full_name = dto.full_name;
+      } else if (user.operatorProfile) {
+        user.operatorProfile.full_name = dto.full_name;
+      }
+    }
 
     // Handle role changes
     if (dto.role !== undefined && dto.role !== oldRole) {
@@ -318,7 +316,6 @@ export class UsersService {
       role: normalizedRole,
       status: UserStatus.Active,
       password: await bcrypt.hash(dto.password, 10),
-      full_name: dto.full_name,
     });
     const savedUser = await this.userRepository.save(user);
 

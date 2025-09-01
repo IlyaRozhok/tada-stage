@@ -61,7 +61,7 @@ export class AuthService {
     private operatorProfileRepository: Repository<OperatorProfile>,
     @InjectRepository(Preferences)
     private preferencesRepository: Repository<Preferences>,
-    private jwtService: JwtService
+    private jwtService: JwtService,
   ) {}
 
   async checkUserExists(email: string): Promise<boolean> {
@@ -162,7 +162,6 @@ export class AuthService {
         "password",
         "role",
         "status",
-        "full_name",
         "provider",
         "google_id",
         "avatar_url",
@@ -179,14 +178,14 @@ export class AuthService {
     // Check password
     if (!user.password) {
       throw new UnauthorizedException(
-        "This account was created with Google. Please use Google sign-in or contact support to set a password."
+        "This account was created with Google. Please use Google sign-in or contact support to set a password.",
       );
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       throw new UnauthorizedException(
-        "Password is incorrect. Try again or create a new account."
+        "Password is incorrect. Try again or create a new account.",
       );
     }
 
@@ -239,7 +238,7 @@ export class AuthService {
 
   async logoutOtherDevices(
     userId: string,
-    currentToken: string
+    currentToken: string,
   ): Promise<void> {
     const sessions = this.sessions.get(userId);
     if (sessions) {
@@ -381,7 +380,7 @@ export class AuthService {
    */
   async createGoogleUserFromTempToken(
     tempToken: string,
-    role: UserRole.Tenant | UserRole.Operator
+    role: UserRole.Tenant | UserRole.Operator,
   ) {
     try {
       // Get and validate temp token
@@ -413,7 +412,6 @@ export class AuthService {
       const user = this.userRepository.create({
         email: email.toLowerCase(),
         google_id,
-        full_name: full_name || null,
         avatar_url: avatar_url || null,
         role: role as UserRole,
         status: UserStatus.Active,
@@ -431,7 +429,7 @@ export class AuthService {
         await this.tenantProfileRepository.save(tenantProfile);
 
         const preferences = this.preferencesRepository.create({
-          user: savedUser,
+          user_id: savedUser.id,
         });
         await this.preferencesRepository.save(preferences);
       } else if (role === UserRole.Operator) {
@@ -501,20 +499,20 @@ export class AuthService {
       // Create appropriate profile
       if (role === UserRole.Tenant) {
         const tenantProfile = this.tenantProfileRepository.create({
-          user: user,
-          full_name: user.full_name || null,
+          userId: user.id,
+          full_name: null,
         });
         await this.tenantProfileRepository.save(tenantProfile);
 
         // Create preferences for tenant
         const preferences = this.preferencesRepository.create({
-          user: user,
+          user_id: user.id,
         });
         await this.preferencesRepository.save(preferences);
       } else if (role === UserRole.Operator) {
         const operatorProfile = this.operatorProfileRepository.create({
-          user: user,
-          full_name: user.full_name || null,
+          userId: user.id,
+          full_name: null,
         });
         await this.operatorProfileRepository.save(operatorProfile);
       }
@@ -577,7 +575,7 @@ export class AuthService {
    */
   async createGoogleUserWithRole(
     tempToken: string,
-    role: UserRole.Tenant | UserRole.Operator
+    role: UserRole.Tenant | UserRole.Operator,
   ) {
     // Use the new method that handles temp tokens
     const user = await this.createGoogleUserFromTempToken(tempToken, role);

@@ -50,11 +50,11 @@ export class FeaturedService {
   constructor(
     @InjectRepository(Property)
     private propertyRepository: Repository<Property>,
-    private propertiesService: PropertiesService
+    private propertiesService: PropertiesService,
   ) {}
 
   async getFeaturedResidentialComplexes(
-    limit: number = 3
+    limit: number = 3,
   ): Promise<ResidentialComplex[]> {
     // Mock data for London residential complexes
     // In a real application, this would come from a database
@@ -132,7 +132,7 @@ export class FeaturedService {
 
   async getFeaturedProperties(
     limit: number = 6,
-    userId?: string
+    userId?: string,
   ): Promise<any[]> {
     // Use PropertiesService to get featured properties with shortlist flags
     return this.propertiesService.findFeaturedProperties(limit, userId);

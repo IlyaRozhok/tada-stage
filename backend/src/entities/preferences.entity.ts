@@ -166,7 +166,7 @@ export class Preferences {
     example: ["flats", "houses"],
     type: [String],
   })
-  @Column("simple-array", { nullable: true })
+  @Column("text", { array: true, nullable: true })
   property_type: string[];
 
   @ApiProperty({
@@ -174,7 +174,7 @@ export class Preferences {
     example: ["btr", "co-living", "new-builds"],
     type: [String],
   })
-  @Column("simple-array", { nullable: true })
+  @Column("text", { array: true, nullable: true })
   building_style: string[];
 
   @ApiProperty({
@@ -211,7 +211,7 @@ export class Preferences {
     example: ["gym", "pool", "garden"],
     type: [String],
   })
-  @Column("simple-array", { nullable: true })
+  @Column("text", { array: true, nullable: true })
   lifestyle_features: string[];
 
   @ApiProperty({
@@ -219,7 +219,7 @@ export class Preferences {
     example: ["communal-space", "rooftop", "events"],
     type: [String],
   })
-  @Column("simple-array", { nullable: true })
+  @Column("text", { array: true, nullable: true })
   social_features: string[];
 
   @ApiProperty({
@@ -227,7 +227,7 @@ export class Preferences {
     example: ["co-working", "meeting-rooms", "high-speed-wifi"],
     type: [String],
   })
-  @Column("simple-array", { nullable: true })
+  @Column("text", { array: true, nullable: true })
   work_features: string[];
 
   @ApiProperty({
@@ -235,7 +235,7 @@ export class Preferences {
     example: ["parking", "storage", "laundry"],
     type: [String],
   })
-  @Column("simple-array", { nullable: true })
+  @Column("text", { array: true, nullable: true })
   convenience_features: string[];
 
   @ApiProperty({
@@ -243,7 +243,7 @@ export class Preferences {
     example: ["pet-park", "pet-washing", "pet-sitting"],
     type: [String],
   })
-  @Column("simple-array", { nullable: true })
+  @Column("text", { array: true, nullable: true })
   pet_friendly_features: string[];
 
   @ApiProperty({
@@ -251,7 +251,7 @@ export class Preferences {
     example: ["concierge", "spa", "cinema"],
     type: [String],
   })
-  @Column("simple-array", { nullable: true })
+  @Column("text", { array: true, nullable: true })
   luxury_features: string[];
 
   @ApiProperty({
@@ -259,7 +259,7 @@ export class Preferences {
     example: ["Reading", "Cooking", "Fitness"],
     type: [String],
   })
-  @Column("simple-array", { nullable: true })
+  @Column("text", { array: true, nullable: true })
   hobbies: string[];
 
   @ApiProperty({

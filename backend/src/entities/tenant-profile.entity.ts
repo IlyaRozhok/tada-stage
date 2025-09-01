@@ -74,26 +74,6 @@ export class TenantProfile {
   lifestyle: string[];
 
   @ApiProperty({
-    description: "Pet ownership information",
-    example: "Cat",
-    enum: ["None", "Cat", "Dog", "Other"],
-  })
-  @Column({ nullable: true })
-  pets: string;
-
-  @ApiProperty({ description: "Whether the tenant smokes", example: false })
-  @Column({ default: false })
-  smoker: boolean;
-
-  @ApiProperty({
-    description: "Tenant's hobbies and lifestyle preferences",
-    example: ["gym", "cooking", "socialising"],
-    type: [String],
-  })
-  @Column("simple-array", { nullable: true })
-  hobbies: string[];
-
-  @ApiProperty({
     description: "Ideal living environment preference",
     example: "social",
     enum: [
@@ -138,4 +118,18 @@ export class TenantProfile {
 
   @Column({ type: "uuid", nullable: true })
   userId: string;
+
+  // Computed properties for backward compatibility - get from preferences
+  get pets(): string | null {
+    return this.user?.preferences?.pets || null;
+  }
+
+  get smoker(): boolean {
+    const smokerPref = this.user?.preferences?.smoker;
+    return smokerPref === "yes" || smokerPref === "true";
+  }
+
+  get hobbies(): string[] {
+    return this.user?.preferences?.hobbies || [];
+  }
 }

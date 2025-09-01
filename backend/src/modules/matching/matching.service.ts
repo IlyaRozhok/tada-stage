@@ -71,21 +71,23 @@ export class MatchingService {
     userId: string,
     limit: number = 20
   ): Promise<Property[]> {
-    console.log(`🔍 Finding matched properties for user: ${userId}, limit: ${limit}`);
-    
+    console.log(
+      `🔍 Finding matched properties for user: ${userId}, limit: ${limit}`
+    );
+
     // Get user preferences
     const preferences = await this.preferencesRepository.findOne({
       where: { user_id: userId },
     });
 
-    console.log(`📋 User preferences found:`, preferences ? 'Yes' : 'No');
+    console.log(`📋 User preferences found:`, preferences ? "Yes" : "No");
     if (preferences) {
       console.log(`📋 Preferences details:`, {
         price_range: `${preferences.min_price}-${preferences.max_price}`,
         bedrooms: `${preferences.min_bedrooms}-${preferences.max_bedrooms}`,
         property_type: preferences.property_type,
         furnishing: preferences.furnishing,
-        lifestyle_features: preferences.lifestyle_features?.length || 0
+        lifestyle_features: preferences.lifestyle_features?.length || 0,
       });
     }
 
@@ -99,8 +101,12 @@ export class MatchingService {
 
     if (!preferences) {
       // If no preferences set, return properties by date
-      console.log(`⚠️ No preferences set, returning ${Math.min(limit, allProperties.length)} properties by date`);
-      const propertiesWithUrls = await this.updateMultiplePropertiesMediaUrls(allProperties.slice(0, limit));
+      console.log(
+        `⚠️ No preferences set, returning ${Math.min(limit, allProperties.length)} properties by date`
+      );
+      const propertiesWithUrls = await this.updateMultiplePropertiesMediaUrls(
+        allProperties.slice(0, limit)
+      );
       return propertiesWithUrls;
     }
 
@@ -145,13 +151,16 @@ export class MatchingService {
 
     console.log(`✅ Returning ${matchedProperties.length} matched properties`);
     if (scoredProperties.length > 0) {
-      console.log(`📊 Top 3 match scores:`, scoredProperties.slice(0, 3).map(s => ({
-        property_id: s.property.id,
-        score: Math.round(s.score * 100) / 100,
-        price: s.property.price,
-        bedrooms: s.property.bedrooms,
-        type: s.property.property_type
-      })));
+      console.log(
+        `📊 Top 3 match scores:`,
+        scoredProperties.slice(0, 3).map((s) => ({
+          property_id: s.property.id,
+          score: Math.round(s.score * 100) / 100,
+          price: s.property.price,
+          bedrooms: s.property.bedrooms,
+          type: s.property.property_type,
+        }))
+      );
     }
 
     // Update presigned URLs for media files
@@ -238,7 +247,7 @@ export class MatchingService {
     ) {
       scores.property_type = preferences.property_type
         .map((type) => type.toLowerCase())
-        .includes(property.property_type.toLowerCase())
+        .some((prefType) => property.property_type?.toLowerCase() === prefType)
         ? 100
         : 0;
     }
@@ -357,14 +366,18 @@ export class MatchingService {
     userId: string,
     limit: number = 10
   ): Promise<MatchingResult[]> {
-    console.log(`🔍 Getting detailed matches for user: ${userId}, limit: ${limit}`);
-    
+    console.log(
+      `🔍 Getting detailed matches for user: ${userId}, limit: ${limit}`
+    );
+
     const preferences = await this.preferencesRepository.findOne({
       where: { user_id: userId },
     });
 
     if (!preferences) {
-      console.log(`⚠️ No preferences found, returning properties without scores`);
+      console.log(
+        `⚠️ No preferences found, returning properties without scores`
+      );
       const properties = await this.propertyRepository.find({
         relations: ["operator", "media"],
         order: { created_at: "DESC" },
@@ -381,8 +394,10 @@ export class MatchingService {
         matchReasons: ["No preferences set"],
         perfectMatch: false,
       }));
-      
-      console.log(`✅ Returning ${result.length} properties without preferences`);
+
+      console.log(
+        `✅ Returning ${result.length} properties without preferences`
+      );
       return result;
     }
 
@@ -400,7 +415,7 @@ export class MatchingService {
         perfectMatch,
       };
     });
-    
+
     console.log(`✅ Returning ${result.length} detailed matches with scores`);
     return result;
   }
@@ -443,7 +458,7 @@ export class MatchingService {
       !preferences.property_type.includes("any") &&
       preferences.property_type
         .map((type) => type.toLowerCase())
-        .includes(property.property_type.toLowerCase())
+        .some((prefType) => property.property_type?.toLowerCase() === prefType)
     ) {
       reasons.push(
         `Property type "${property.property_type}" matches preference`
@@ -572,7 +587,9 @@ export class MatchingService {
       if (
         !preferences.property_type
           .map((type) => type.toLowerCase())
-          .includes(property.property_type.toLowerCase())
+          .some(
+            (prefType) => property.property_type?.toLowerCase() === prefType
+          )
       ) {
         return false;
       }

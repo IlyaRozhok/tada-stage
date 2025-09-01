@@ -1,4 +1,18 @@
 services:
+  postgres:
+    image: postgres:16
+    container_name: pg16-local
+    environment:
+      POSTGRES_DB: rental_platform
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - rental_network_stage
+
   backend:
     build:
       context: ./backend
@@ -10,11 +24,21 @@ services:
       - ./backend/.env.stage
     environment:
       - PORT=3002
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=rental_platform
     command: node dist/src/main.js
+    depends_on:
+      - postgres
     networks:
       - rental_network_stage
     extra_hosts:
       - "host.docker.internal:host-gateway"
+
+volumes:
+  postgres_data:
 
 networks:
   rental_network_stage:

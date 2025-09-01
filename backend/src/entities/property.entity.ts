@@ -51,7 +51,11 @@ export class Property {
   @Column("int")
   bathrooms: number;
 
-  @ApiProperty({ description: "Property type", example: "apartment" })
+  @ApiProperty({
+    description: "Property type",
+    example: "apartment",
+    enum: ["apartment", "studio", "house", "flat"],
+  })
   @Column()
   property_type: string;
 

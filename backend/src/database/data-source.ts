@@ -1,4 +1,5 @@
 import { DataSource, DataSourceOptions } from "typeorm";
+import { config } from "dotenv";
 import { User } from "../entities/user.entity";
 import { TenantProfile } from "../entities/tenant-profile.entity";
 import { OperatorProfile } from "../entities/operator-profile.entity";
@@ -7,6 +8,9 @@ import { Property } from "../entities/property.entity";
 import { PropertyMedia } from "../entities/property-media.entity";
 import { Shortlist } from "../entities/shortlist.entity";
 import { Favourite } from "../entities/favourite.entity";
+
+// Load environment variables
+config({ path: ".env.local" });
 
 export const dataSourceOptions: DataSourceOptions = {
   type: "postgres",
