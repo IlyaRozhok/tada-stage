@@ -4,7 +4,7 @@
   "description": "NestJS backend for rental platform",
   "main": "dist/src/main.js",
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.json",
     "dev": "nest start --watch",
     "start": "node dist/src/main",
     "start:dev": "nest start --watch",
@@ -55,6 +55,7 @@
     "@types/passport-local": "^1.0.38",
     "@types/uuid": "^9.0.7",
     "ts-node": "^10.9.1",
+    "tsc-alias": "^1.8.16",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.1.3"
   }
