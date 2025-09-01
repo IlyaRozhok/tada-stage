@@ -4,8 +4,8 @@
   "description": "NestJS backend for rental platform",
   "main": "dist/src/main.js",
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
     "dev": "nest start --watch",
-    "build": "nest build",
     "start": "node dist/src/main",
     "start:dev": "nest start --watch",
     "typeorm": "typeorm-ts-node-commonjs",
