@@ -10,7 +10,7 @@ services:
       - ./backend/.env.stage
     environment:
       - PORT=3002
-    command: node dist/src/main.js
+    command: node dist/main.js
     networks:
       - rental_network_stage
     extra_hosts:

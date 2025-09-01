@@ -4,9 +4,9 @@
   "description": "NestJS backend for rental platform",
   "main": "dist/src/main.js",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && tsc-alias -p tsconfig.json",
     "dev": "nest start --watch",
-    "start": "node dist/src/main",
+    "start": "node dist/main.js",
     "start:dev": "nest start --watch",
     "typeorm": "typeorm-ts-node-commonjs",
     "typeorm:migration:generate": "npm run typeorm -- migration:generate -d src/database/data-source.ts",
