@@ -5,11 +5,9 @@ services:
       dockerfile: Dockerfile
     container_name: tada-backend-stage
     ports:
-      - "3002:3002"
+      - "5002:5002"
     env_file:
       - ./backend/.env.stage
-    environment:
-      - PORT=3002
     command: node dist/main.js
     networks:
       - rental_network_stage
