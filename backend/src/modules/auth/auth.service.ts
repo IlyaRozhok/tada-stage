@@ -61,7 +61,7 @@ export class AuthService {
     private operatorProfileRepository: Repository<OperatorProfile>,
     @InjectRepository(Preferences)
     private preferencesRepository: Repository<Preferences>,
-    private jwtService: JwtService,
+    private jwtService: JwtService
   ) {}
 
   async checkUserExists(email: string): Promise<boolean> {
@@ -178,14 +178,14 @@ export class AuthService {
     // Check password
     if (!user.password) {
       throw new UnauthorizedException(
-        "This account was created with Google. Please use Google sign-in or contact support to set a password.",
+        "This account was created with Google. Please use Google sign-in or contact support to set a password."
       );
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       throw new UnauthorizedException(
-        "Password is incorrect. Try again or create a new account.",
+        "Password is incorrect. Try again or create a new account."
       );
     }
 
@@ -238,7 +238,7 @@ export class AuthService {
 
   async logoutOtherDevices(
     userId: string,
-    currentToken: string,
+    currentToken: string
   ): Promise<void> {
     const sessions = this.sessions.get(userId);
     if (sessions) {
@@ -380,7 +380,7 @@ export class AuthService {
    */
   async createGoogleUserFromTempToken(
     tempToken: string,
-    role: UserRole.Tenant | UserRole.Operator,
+    role: UserRole.Tenant | UserRole.Operator
   ) {
     try {
       // Get and validate temp token
@@ -419,6 +419,12 @@ export class AuthService {
         password: await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 10),
       });
 
+      console.log("🔍 Creating user with role:", {
+        email: user.email,
+        role: user.role,
+        google_id: user.google_id,
+      });
+
       const savedUser = await this.userRepository.save(user);
 
       // Create role-specific profiles
@@ -454,24 +460,24 @@ export class AuthService {
    */
   async googleAuth(googleUser: any) {
     try {
-      console.log('Google auth called with user:', {
+      console.log("Google auth called with user:", {
         email: googleUser.email,
         google_id: googleUser.google_id,
-        full_name: googleUser.full_name
+        full_name: googleUser.full_name,
       });
-      
+
       // Use the new method to check user
       const result = await this.checkGoogleUser(googleUser);
 
       if (result.user) {
-        console.log('Existing user found:', result.user.email);
+        console.log("Existing user found:", result.user.email);
         // Existing user - generate tokens and return
         return {
           user: result.user,
           isNewUser: false,
         };
       } else if (result.tempToken) {
-        console.log('New user, temp token created:', result.tempToken);
+        console.log("New user, temp token created:", result.tempToken);
         // New user - return temp token for role selection
         return {
           tempToken: result.tempToken,
@@ -481,7 +487,7 @@ export class AuthService {
 
       throw new InternalServerErrorException("Unexpected auth result");
     } catch (error) {
-      console.error('Google auth error:', error);
+      console.error("Google auth error:", error);
       throw error;
     }
   }
@@ -544,6 +550,12 @@ export class AuthService {
     };
     const access_token = this.jwtService.sign(payload);
 
+    console.log("🔍 Generated tokens for user:", {
+      email: user.email,
+      role: user.role,
+      id: user.id,
+    });
+
     return {
       access_token,
       user,
@@ -584,7 +596,7 @@ export class AuthService {
    */
   async createGoogleUserWithRole(
     tempToken: string,
-    role: UserRole.Tenant | UserRole.Operator,
+    role: UserRole.Tenant | UserRole.Operator
   ) {
     // Use the new method that handles temp tokens
     const user = await this.createGoogleUserFromTempToken(tempToken, role);

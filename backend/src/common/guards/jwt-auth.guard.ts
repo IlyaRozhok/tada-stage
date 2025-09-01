@@ -1,15 +1,15 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { AuthGuard } from "@nestjs/passport";
 
 @Injectable()
-export class JwtAuthGuard extends AuthGuard('jwt') {
+export class JwtAuthGuard extends AuthGuard("jwt") {
   handleRequest(err: any, user: any, info: any) {
     if (err || !user) {
-      if (info && info.message === 'No token found') {
-        throw new UnauthorizedException('No token found');
+      if (info && info.message === "No token found") {
+        throw new UnauthorizedException("No token found");
       }
-      throw err || new UnauthorizedException('Invalid token');
+      throw err || new UnauthorizedException("Invalid token");
     }
     return user;
   }
-} 
+}

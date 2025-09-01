@@ -195,7 +195,7 @@ export class AuthController {
         return res.redirect(callbackUrl);
       } else if (result.tempToken && result.isNewUser) {
         // Redirect to frontend role selection page with temp token
-        const callbackUrl = `${process.env.FRONTEND_URL}/auth/select-role?tempToken=${result.tempToken}`;
+        const callbackUrl = `${process.env.FRONTEND_URL}/app/auth/select-role?tempToken=${result.tempToken}`;
         return res.redirect(callbackUrl);
       }
     } catch (error: any) {
@@ -284,6 +284,48 @@ export class AuthController {
           avatar_url: tokenInfo.googleUserData.avatar_url,
         },
         expiresAt: tokenInfo.expiresAt,
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  @Post("create-google-user-from-temp-token")
+  async createGoogleUserFromTempToken(
+    @Body() body: { tempToken: string; role: "tenant" | "operator" }
+  ) {
+    try {
+      const { tempToken, role } = body;
+
+      if (!tempToken || !role) {
+        throw new BadRequestException("Temp token and role are required");
+      }
+
+      if (!["tenant", "operator"].includes(role)) {
+        throw new BadRequestException(
+          "Invalid role. Must be 'tenant' or 'operator'"
+        );
+      }
+
+      const user = await this.authService.createGoogleUserFromTempToken(
+        tempToken,
+        role === "tenant" ? UserRole.Tenant : UserRole.Operator
+      );
+
+      // Generate tokens for the new user
+      const tokens = await this.authService.generateTokens(user);
+
+      console.log("🔍 Created Google user:", {
+        email: user.email,
+        role: user.role,
+        id: user.id,
+        provider: user.provider,
+      });
+
+      return {
+        success: true,
+        user,
+        access_token: tokens.access_token,
       };
     } catch (error) {
       throw error;
