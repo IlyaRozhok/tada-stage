@@ -178,7 +178,9 @@ export class AuthController {
     try {
       if (!req.user) {
         return res.redirect(
-          `${process.env.FRONTEND_URL}/app/auth/callback?success=false&error=${encodeURIComponent(
+          `${
+            process.env.FRONTEND_URL
+          }/app/auth/callback?success=false&error=${encodeURIComponent(
             "Authentication failed - no user data"
           )}`
         );
@@ -192,7 +194,7 @@ export class AuthController {
         const callbackUrl = `${process.env.FRONTEND_URL}/app/auth/callback?token=${tokens.access_token}&success=true&isNewUser=false`;
         return res.redirect(callbackUrl);
       } else if (result.tempToken && result.isNewUser) {
-        // Redirect directly to role selection page with temp token
+        // Redirect to frontend role selection page with temp token
         const callbackUrl = `${process.env.FRONTEND_URL}/auth/select-role?tempToken=${result.tempToken}`;
         return res.redirect(callbackUrl);
       }
@@ -200,7 +202,9 @@ export class AuthController {
       const errorMessage =
         error instanceof Error ? error.message : "Authentication failed";
       return res.redirect(
-        `${process.env.FRONTEND_URL}/app/auth/callback?success=false&error=${encodeURIComponent(
+        `${
+          process.env.FRONTEND_URL
+        }/app/auth/callback?success=false&error=${encodeURIComponent(
           errorMessage
         )}`
       );
@@ -240,6 +244,33 @@ export class AuthController {
   async getTempTokenInfo(@Param("token") token: string) {
     try {
       const tokenInfo = await this.authService.getTempTokenInfo(token);
+
+      if (!tokenInfo) {
+        throw new BadRequestException("Invalid or expired token");
+      }
+
+      return {
+        success: true,
+        googleData: {
+          email: tokenInfo.googleUserData.email,
+          full_name: tokenInfo.googleUserData.full_name,
+          avatar_url: tokenInfo.googleUserData.avatar_url,
+        },
+        expiresAt: tokenInfo.expiresAt,
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  @Get("select-role")
+  async selectRole(@Query("tempToken") tempToken: string) {
+    try {
+      if (!tempToken) {
+        throw new BadRequestException("Temp token is required");
+      }
+
+      const tokenInfo = await this.authService.getTempTokenInfo(tempToken);
 
       if (!tokenInfo) {
         throw new BadRequestException("Invalid or expired token");

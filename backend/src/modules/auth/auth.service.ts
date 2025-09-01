@@ -454,16 +454,24 @@ export class AuthService {
    */
   async googleAuth(googleUser: any) {
     try {
+      console.log('Google auth called with user:', {
+        email: googleUser.email,
+        google_id: googleUser.google_id,
+        full_name: googleUser.full_name
+      });
+      
       // Use the new method to check user
       const result = await this.checkGoogleUser(googleUser);
 
       if (result.user) {
+        console.log('Existing user found:', result.user.email);
         // Existing user - generate tokens and return
         return {
           user: result.user,
           isNewUser: false,
         };
       } else if (result.tempToken) {
+        console.log('New user, temp token created:', result.tempToken);
         // New user - return temp token for role selection
         return {
           tempToken: result.tempToken,
@@ -473,6 +481,7 @@ export class AuthService {
 
       throw new InternalServerErrorException("Unexpected auth result");
     } catch (error) {
+      console.error('Google auth error:', error);
       throw error;
     }
   }

@@ -5,6 +5,9 @@ import { AuthGuard } from '@nestjs/passport';
 export class JwtAuthGuard extends AuthGuard('jwt') {
   handleRequest(err: any, user: any, info: any) {
     if (err || !user) {
+      if (info && info.message === 'No token found') {
+        throw new UnauthorizedException('No token found');
+      }
       throw err || new UnauthorizedException('Invalid token');
     }
     return user;

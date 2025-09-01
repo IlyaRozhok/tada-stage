@@ -13,19 +13,13 @@ async function bootstrap() {
   app.use(require("express").json({ limit: "10mb" }));
   app.use(require("express").urlencoded({ limit: "10mb", extended: true }));
 
-  const origins = (process.env.CORS_ORIGINS ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-
+  // Настройка CORS
   app.enableCors({
-    origin: origins,
-    credentials: false,
+    origin: ['http://localhost:3000', 'https://stage.ta-da.co'],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   });
-
-  if (origins.length) {
-    app.enableCors({ origin: origins, credentials: false });
-  }
 
   app.setGlobalPrefix("api");
 
