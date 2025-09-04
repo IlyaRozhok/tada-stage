@@ -1,22 +1,22 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 export class InitialSchema1756000000000 implements MigrationInterface {
-    name = 'InitialSchema1756000000000'
+  name = "InitialSchema1756000000000";
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        // Enable required extensions
-        await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    // Enable required extensions
+    await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
 
-        // Create enum types
-        await queryRunner.query(`
+    // Create enum types
+    await queryRunner.query(`
             CREATE TYPE "public"."users_role_enum" AS ENUM('admin', 'operator', 'tenant')
         `);
-        await queryRunner.query(`
+    await queryRunner.query(`
             CREATE TYPE "public"."users_status_enum" AS ENUM('active', 'inactive', 'suspended')
         `);
 
-        // Create users table
-        await queryRunner.query(`
+    // Create users table
+    await queryRunner.query(`
             CREATE TABLE "users" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "email" character varying NOT NULL,
@@ -34,8 +34,8 @@ export class InitialSchema1756000000000 implements MigrationInterface {
             )
         `);
 
-        // Create tenant_profiles table
-        await queryRunner.query(`
+    // Create tenant_profiles table
+    await queryRunner.query(`
             CREATE TABLE "tenant_profiles" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "full_name" character varying,
@@ -58,8 +58,8 @@ export class InitialSchema1756000000000 implements MigrationInterface {
             )
         `);
 
-        // Create operator_profiles table
-        await queryRunner.query(`
+    // Create operator_profiles table
+    await queryRunner.query(`
             CREATE TABLE "operator_profiles" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "full_name" character varying,
@@ -86,8 +86,8 @@ export class InitialSchema1756000000000 implements MigrationInterface {
             )
         `);
 
-        // Create preferences table
-        await queryRunner.query(`
+    // Create preferences table
+    await queryRunner.query(`
             CREATE TABLE "preferences" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "user_id" uuid NOT NULL,
@@ -129,8 +129,8 @@ export class InitialSchema1756000000000 implements MigrationInterface {
             )
         `);
 
-        // Create properties table
-        await queryRunner.query(`
+    // Create properties table
+    await queryRunner.query(`
             CREATE TABLE "properties" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "title" character varying NOT NULL,
@@ -154,8 +154,8 @@ export class InitialSchema1756000000000 implements MigrationInterface {
             )
         `);
 
-        // Create property_media table
-        await queryRunner.query(`
+    // Create property_media table
+    await queryRunner.query(`
             CREATE TABLE "property_media" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "property_id" uuid NOT NULL,
@@ -166,15 +166,14 @@ export class InitialSchema1756000000000 implements MigrationInterface {
                 "original_filename" character varying NOT NULL,
                 "file_size" bigint NOT NULL,
                 "order_index" integer NOT NULL DEFAULT 0,
-                "is_featured" boolean NOT NULL DEFAULT false,
                 "created_at" TIMESTAMP NOT NULL DEFAULT now(),
                 "updated_at" TIMESTAMP NOT NULL DEFAULT now(),
                 CONSTRAINT "PK_property_media" PRIMARY KEY ("id")
             )
         `);
 
-        // Create shortlist table
-        await queryRunner.query(`
+    // Create shortlist table
+    await queryRunner.query(`
             CREATE TABLE "shortlist" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "userId" uuid NOT NULL,
@@ -185,116 +184,113 @@ export class InitialSchema1756000000000 implements MigrationInterface {
             )
         `);
 
-        // Create favourites table
-        await queryRunner.query(`
-            CREATE TABLE "favourites" (
-                "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-                "userId" uuid NOT NULL,
-                "propertyId" uuid NOT NULL,
-                "created_at" TIMESTAMP NOT NULL DEFAULT now(),
-                CONSTRAINT "PK_favourites" PRIMARY KEY ("id"),
-                CONSTRAINT "unique_user_property_favourite" UNIQUE ("userId", "propertyId")
-            )
-        `);
+    // Create indexes
+    await queryRunner.query(
+      `CREATE INDEX "IDX_users_email" ON "users" ("email")`
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_users_google_id" ON "users" ("google_id")`
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_properties_price" ON "properties" ("price")`
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_properties_bedrooms" ON "properties" ("bedrooms")`
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_properties_available_from" ON "properties" ("available_from")`
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_shortlist_userId" ON "shortlist" ("userId")`
+    );
 
-        // Create indexes
-        await queryRunner.query(`CREATE INDEX "IDX_users_email" ON "users" ("email")`);
-        await queryRunner.query(`CREATE INDEX "IDX_users_google_id" ON "users" ("google_id")`);
-        await queryRunner.query(`CREATE INDEX "IDX_properties_price" ON "properties" ("price")`);
-        await queryRunner.query(`CREATE INDEX "IDX_properties_bedrooms" ON "properties" ("bedrooms")`);
-        await queryRunner.query(`CREATE INDEX "IDX_properties_available_from" ON "properties" ("available_from")`);
-        await queryRunner.query(`CREATE INDEX "IDX_shortlist_userId" ON "shortlist" ("userId")`);
-        await queryRunner.query(`CREATE INDEX "IDX_favourites_userId" ON "favourites" ("userId")`);
-
-        // Add foreign key constraints
-        await queryRunner.query(`
+    // Add foreign key constraints
+    await queryRunner.query(`
             ALTER TABLE "tenant_profiles"
             ADD CONSTRAINT "FK_tenant_profiles_userId"
             FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE
         `);
 
-        await queryRunner.query(`
+    await queryRunner.query(`
             ALTER TABLE "operator_profiles"
             ADD CONSTRAINT "FK_operator_profiles_userId"
             FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE
         `);
 
-        await queryRunner.query(`
+    await queryRunner.query(`
             ALTER TABLE "preferences"
             ADD CONSTRAINT "FK_preferences_user_id"
             FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE
         `);
 
-        await queryRunner.query(`
+    await queryRunner.query(`
             ALTER TABLE "properties"
             ADD CONSTRAINT "FK_properties_operator_id"
             FOREIGN KEY ("operator_id") REFERENCES "users"("id") ON DELETE CASCADE
         `);
 
-        await queryRunner.query(`
+    await queryRunner.query(`
             ALTER TABLE "property_media"
             ADD CONSTRAINT "FK_property_media_property_id"
             FOREIGN KEY ("property_id") REFERENCES "properties"("id") ON DELETE CASCADE
         `);
 
-        await queryRunner.query(`
+    await queryRunner.query(`
             ALTER TABLE "shortlist"
             ADD CONSTRAINT "FK_shortlist_userId"
             FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE
         `);
 
-        await queryRunner.query(`
+    await queryRunner.query(`
             ALTER TABLE "shortlist"
             ADD CONSTRAINT "FK_shortlist_propertyId"
             FOREIGN KEY ("propertyId") REFERENCES "properties"("id") ON DELETE CASCADE
         `);
+  }
 
-        await queryRunner.query(`
-            ALTER TABLE "favourites"
-            ADD CONSTRAINT "FK_favourites_userId"
-            FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE
-        `);
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    // Drop foreign key constraints
+    await queryRunner.query(
+      `ALTER TABLE "shortlist" DROP CONSTRAINT "FK_shortlist_propertyId"`
+    );
+    await queryRunner.query(
+      `ALTER TABLE "shortlist" DROP CONSTRAINT "FK_shortlist_userId"`
+    );
+    await queryRunner.query(
+      `ALTER TABLE "property_media" DROP CONSTRAINT "FK_property_media_property_id"`
+    );
+    await queryRunner.query(
+      `ALTER TABLE "properties" DROP CONSTRAINT "FK_properties_operator_id"`
+    );
+    await queryRunner.query(
+      `ALTER TABLE "preferences" DROP CONSTRAINT "FK_preferences_user_id"`
+    );
+    await queryRunner.query(
+      `ALTER TABLE "operator_profiles" DROP CONSTRAINT "FK_operator_profiles_userId"`
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tenant_profiles" DROP CONSTRAINT "FK_tenant_profiles_userId"`
+    );
 
-        await queryRunner.query(`
-            ALTER TABLE "favourites"
-            ADD CONSTRAINT "FK_favourites_propertyId"
-            FOREIGN KEY ("propertyId") REFERENCES "properties"("id") ON DELETE CASCADE
-        `);
-    }
+    // Drop indexes
+    await queryRunner.query(`DROP INDEX "IDX_shortlist_userId"`);
+    await queryRunner.query(`DROP INDEX "IDX_properties_available_from"`);
+    await queryRunner.query(`DROP INDEX "IDX_properties_bedrooms"`);
+    await queryRunner.query(`DROP INDEX "IDX_properties_price"`);
+    await queryRunner.query(`DROP INDEX "IDX_users_google_id"`);
+    await queryRunner.query(`DROP INDEX "IDX_users_email"`);
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        // Drop foreign key constraints
-        await queryRunner.query(`ALTER TABLE "favourites" DROP CONSTRAINT "FK_favourites_propertyId"`);
-        await queryRunner.query(`ALTER TABLE "favourites" DROP CONSTRAINT "FK_favourites_userId"`);
-        await queryRunner.query(`ALTER TABLE "shortlist" DROP CONSTRAINT "FK_shortlist_propertyId"`);
-        await queryRunner.query(`ALTER TABLE "shortlist" DROP CONSTRAINT "FK_shortlist_userId"`);
-        await queryRunner.query(`ALTER TABLE "property_media" DROP CONSTRAINT "FK_property_media_property_id"`);
-        await queryRunner.query(`ALTER TABLE "properties" DROP CONSTRAINT "FK_properties_operator_id"`);
-        await queryRunner.query(`ALTER TABLE "preferences" DROP CONSTRAINT "FK_preferences_user_id"`);
-        await queryRunner.query(`ALTER TABLE "operator_profiles" DROP CONSTRAINT "FK_operator_profiles_userId"`);
-        await queryRunner.query(`ALTER TABLE "tenant_profiles" DROP CONSTRAINT "FK_tenant_profiles_userId"`);
+    // Drop tables
+    await queryRunner.query(`DROP TABLE "shortlist"`);
+    await queryRunner.query(`DROP TABLE "property_media"`);
+    await queryRunner.query(`DROP TABLE "properties"`);
+    await queryRunner.query(`DROP TABLE "preferences"`);
+    await queryRunner.query(`DROP TABLE "operator_profiles"`);
+    await queryRunner.query(`DROP TABLE "tenant_profiles"`);
+    await queryRunner.query(`DROP TABLE "users"`);
 
-        // Drop indexes
-        await queryRunner.query(`DROP INDEX "IDX_favourites_userId"`);
-        await queryRunner.query(`DROP INDEX "IDX_shortlist_userId"`);
-        await queryRunner.query(`DROP INDEX "IDX_properties_available_from"`);
-        await queryRunner.query(`DROP INDEX "IDX_properties_bedrooms"`);
-        await queryRunner.query(`DROP INDEX "IDX_properties_price"`);
-        await queryRunner.query(`DROP INDEX "IDX_users_google_id"`);
-        await queryRunner.query(`DROP INDEX "IDX_users_email"`);
-
-        // Drop tables
-        await queryRunner.query(`DROP TABLE "favourites"`);
-        await queryRunner.query(`DROP TABLE "shortlist"`);
-        await queryRunner.query(`DROP TABLE "property_media"`);
-        await queryRunner.query(`DROP TABLE "properties"`);
-        await queryRunner.query(`DROP TABLE "preferences"`);
-        await queryRunner.query(`DROP TABLE "operator_profiles"`);
-        await queryRunner.query(`DROP TABLE "tenant_profiles"`);
-        await queryRunner.query(`DROP TABLE "users"`);
-
-        // Drop enum types
-        await queryRunner.query(`DROP TYPE "public"."users_status_enum"`);
-        await queryRunner.query(`DROP TYPE "public"."users_role_enum"`);
-    }
+    // Drop enum types
+    await queryRunner.query(`DROP TYPE "public"."users_status_enum"`);
+    await queryRunner.query(`DROP TYPE "public"."users_role_enum"`);
+  }
 }

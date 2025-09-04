@@ -1,14 +1,17 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
-import { Like } from "typeorm";
+import * as bcrypt from "bcryptjs";
 
 import { User, UserRole, UserStatus } from "../../entities/user.entity";
 import { TenantProfile } from "../../entities/tenant-profile.entity";
 import { OperatorProfile } from "../../entities/operator-profile.entity";
+import { Preferences } from "../../entities/preferences.entity";
 import { UpdateUserDto } from "./dto/update-user.dto";
 import { CreateUserDto } from "./dto/create-user.dto";
-import * as bcrypt from "bcryptjs";
+import { UserProfileService } from "./services/user-profile.service";
+import { UserRoleService } from "./services/user-role.service";
+import { USER_CONSTANTS } from "../../common/constants/user.constants";
 
 @Injectable()
 export class UsersService {
@@ -19,6 +22,10 @@ export class UsersService {
     private tenantProfileRepository: Repository<TenantProfile>,
     @InjectRepository(OperatorProfile)
     private operatorProfileRepository: Repository<OperatorProfile>,
+    @InjectRepository(Preferences)
+    private preferencesRepository: Repository<Preferences>,
+    private userProfileService: UserProfileService,
+    private userRoleService: UserRoleService
   ) {}
 
   async findOne(id: string): Promise<User> {
@@ -33,11 +40,7 @@ export class UsersService {
     }
 
     // Add phone number from the appropriate profile to the user object for easy access
-    if (user.tenantProfile?.phone) {
-      (user as any).phone = user.tenantProfile.phone;
-    } else if (user.operatorProfile?.phone) {
-      (user as any).phone = user.operatorProfile.phone;
-    }
+    this.addPhoneToUser(user);
 
     return user;
   }
@@ -48,81 +51,36 @@ export class UsersService {
     // Update user basic info
     if (updateUserDto.email) user.email = updateUserDto.email;
     if (updateUserDto.status) user.status = updateUserDto.status;
-    if (updateUserDto.full_name && user.tenantProfile) {
-      user.tenantProfile.full_name = updateUserDto.full_name;
-    } else if (updateUserDto.full_name && user.operatorProfile) {
-      user.operatorProfile.full_name = updateUserDto.full_name;
-    }
 
     // Update profile based on role
-    if (user.role === UserRole.Tenant && user.tenantProfile) {
-      if (updateUserDto.phone) user.tenantProfile.phone = updateUserDto.phone;
+    if (user.role === UserRole.Tenant) {
+      await this.userProfileService.updateTenantProfile(user, updateUserDto);
       if (
-        updateUserDto.date_of_birth &&
-        updateUserDto.date_of_birth.trim() !== ""
-      )
-        user.tenantProfile.date_of_birth = new Date(
-          updateUserDto.date_of_birth,
-        );
-      if (updateUserDto.nationality)
-        user.tenantProfile.nationality = updateUserDto.nationality;
-      if (updateUserDto.age_range)
-        user.tenantProfile.age_range = updateUserDto.age_range;
-      if (updateUserDto.occupation)
-        user.tenantProfile.occupation = updateUserDto.occupation;
-      if (updateUserDto.industry)
-        user.tenantProfile.industry = updateUserDto.industry;
-      if (updateUserDto.work_style)
-        user.tenantProfile.work_style = updateUserDto.work_style;
-      if (updateUserDto.lifestyle)
-        user.tenantProfile.lifestyle = updateUserDto.lifestyle;
-      if (updateUserDto.pets && user.preferences) {
-        user.preferences.pets = updateUserDto.pets;
+        updateUserDto.pets !== undefined ||
+        updateUserDto.smoker !== undefined ||
+        updateUserDto.hobbies
+      ) {
+        await this.userProfileService.updatePreferences(user, updateUserDto);
       }
-      if (updateUserDto.smoker !== undefined && user.preferences) {
-        user.preferences.smoker = updateUserDto.smoker ? "yes" : "no";
-      }
-      if (updateUserDto.hobbies && user.preferences) {
-        user.preferences.hobbies = updateUserDto.hobbies;
-      }
-      if (updateUserDto.ideal_living_environment)
-        user.tenantProfile.ideal_living_environment =
-          updateUserDto.ideal_living_environment;
-      if (updateUserDto.additional_info)
-        user.tenantProfile.additional_info = updateUserDto.additional_info;
-
-      await this.tenantProfileRepository.save(user.tenantProfile);
-    } else if (user.role === UserRole.Operator && user.operatorProfile) {
-      if (updateUserDto.phone) user.operatorProfile.phone = updateUserDto.phone;
-      if (
-        updateUserDto.date_of_birth &&
-        updateUserDto.date_of_birth.trim() !== ""
-      )
-        user.operatorProfile.date_of_birth = new Date(
-          updateUserDto.date_of_birth,
-        );
-      if (updateUserDto.nationality)
-        user.operatorProfile.nationality = updateUserDto.nationality;
-      if (updateUserDto.company_name)
-        user.operatorProfile.company_name = updateUserDto.company_name;
-      if (updateUserDto.business_address)
-        user.operatorProfile.business_address = updateUserDto.business_address;
-      if (updateUserDto.business_description)
-        user.operatorProfile.business_description =
-          updateUserDto.business_description;
-
-      await this.operatorProfileRepository.save(user.operatorProfile);
+    } else if (user.role === UserRole.Operator) {
+      await this.userProfileService.updateOperatorProfile(user, updateUserDto);
     }
 
     return this.userRepository.save(user);
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    return this.userRepository.findOne({
+    const user = await this.userRepository.findOne({
       where: { email },
       relations: ["preferences", "tenantProfile", "operatorProfile"],
       select: ["id", "email", "role", "status", "created_at", "updated_at"],
     });
+
+    if (user) {
+      this.addPhoneToUser(user);
+    }
+
+    return user;
   }
 
   async deleteAccount(id: string): Promise<void> {
@@ -140,87 +98,61 @@ export class UsersService {
       throw new NotFoundException(`User with id ${id} not found`);
     }
 
-    // Manually delete shortlists first (since they don't have cascade)
-    if (user.shortlists && user.shortlists.length > 0) {
-      await this.userRepository.manager.delete("shortlist", { userId: id });
-    }
+    // Use transaction to ensure all deletions succeed or fail together
+    const queryRunner =
+      this.userRepository.manager.connection.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    // Delete user - cascading will handle preferences, tenantProfile, operatorProfile
-    await this.userRepository.remove(user);
+    try {
+      await this.deleteUserData(queryRunner, user);
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      console.error("Error deleting user:", error);
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   async findAllPaginated({
-    page = 1,
-    limit = 10,
+    page,
+    limit,
     search = "",
     sortBy = "created_at",
     order = "DESC",
+  }: {
+    page: number;
+    limit: number;
+    search?: string;
+    sortBy?: string;
+    order?: "ASC" | "DESC";
   }) {
     const skip = (page - 1) * limit;
 
     // Validate sortBy field to prevent SQL injection and errors
-    const validSortFields = [
-      "id",
-      "email",
-      "role",
-      "status",
-      "full_name",
-      "created_at",
-      "updated_at",
-    ];
-    const safeSortBy = validSortFields.includes(sortBy) ? sortBy : "created_at";
-
-    // Validate order direction
+    const safeSortBy = USER_CONSTANTS.VALID_SORT_FIELDS.includes(sortBy as any)
+      ? sortBy
+      : "created_at";
     const safeOrder = order.toUpperCase() === "ASC" ? "ASC" : "DESC";
 
     // Check if full_name column exists in users table
-    const hasFullNameColumn = await this.userRepository.manager.query(`
-      SELECT column_name FROM information_schema.columns
-      WHERE table_name = 'users' AND column_name = 'full_name'
-    `);
+    const hasFullNameColumn = await this.checkFullNameColumnExists();
 
-    const query = this.userRepository
-      .createQueryBuilder("user")
-      .leftJoinAndSelect("user.tenantProfile", "tenantProfile")
-      .leftJoinAndSelect("user.operatorProfile", "operatorProfile");
-
-    if (search) {
-      if (hasFullNameColumn.length > 0) {
-        // Use user.full_name if column exists
-        query.where(
-          "user.full_name ILIKE :search OR user.email ILIKE :search",
-          {
-            search: `%${search}%`,
-          },
-        );
-      } else {
-        // Fallback to profile names if full_name doesn't exist yet
-        query.where(
-          "tenantProfile.full_name ILIKE :search OR operatorProfile.full_name ILIKE :search OR user.email ILIKE :search",
-          { search: `%${search}%` },
-        );
-      }
-    }
-
-    // Safe sorting with column existence check
-    if (safeSortBy === "full_name" && hasFullNameColumn.length === 0) {
-      // If trying to sort by full_name but column doesn't exist, use created_at
-      query.orderBy("user.created_at", safeOrder as any);
-    } else {
-      query.orderBy(`user.${safeSortBy}`, safeOrder as any);
-    }
-
-    query.skip(skip).take(limit);
-
+    const query = this.buildUserQuery(
+      search,
+      hasFullNameColumn,
+      safeSortBy,
+      safeOrder,
+      skip,
+      limit
+    );
     const [users, total] = await query.getManyAndCount();
 
     // Add phone numbers from profiles to users for easy access
     const usersWithPhone = users.map((user) => {
-      if (user.tenantProfile?.phone) {
-        (user as any).phone = user.tenantProfile.phone;
-      } else if (user.operatorProfile?.phone) {
-        (user as any).phone = user.operatorProfile.phone;
-      }
+      this.addPhoneToUser(user);
       return user;
     });
 
@@ -248,48 +180,15 @@ export class UsersService {
     // Update basic user fields
     if (dto.email !== undefined) user.email = dto.email;
     if (dto.status !== undefined) user.status = dto.status;
-    if (dto.full_name !== undefined) {
-      if (user.tenantProfile) {
-        user.tenantProfile.full_name = dto.full_name;
-      } else if (user.operatorProfile) {
-        user.operatorProfile.full_name = dto.full_name;
-      }
-    }
 
     // Handle role changes
     if (dto.role !== undefined && dto.role !== oldRole) {
-      user.role = dto.role;
-
-      // If changing to tenant but no tenant profile exists, create one
-      if (dto.role === UserRole.Tenant && !user.tenantProfile) {
-        const tenantProfile = this.tenantProfileRepository.create({
-          user: user,
-          full_name: user.full_name,
-        });
-        user.tenantProfile =
-          await this.tenantProfileRepository.save(tenantProfile);
-      }
-
-      // If changing to operator but no operator profile exists, create one
-      if (dto.role === UserRole.Operator && !user.operatorProfile) {
-        const operatorProfile = this.operatorProfileRepository.create({
-          user: user,
-          full_name: user.full_name,
-        });
-        user.operatorProfile =
-          await this.operatorProfileRepository.save(operatorProfile);
-      }
+      return await this.userRoleService.updateUserRole(id, dto.role);
     }
 
     // Handle phone number updates in the appropriate profile
     if (dto.phone !== undefined) {
-      if (user.role === UserRole.Tenant && user.tenantProfile) {
-        user.tenantProfile.phone = dto.phone;
-        await this.tenantProfileRepository.save(user.tenantProfile);
-      } else if (user.role === UserRole.Operator && user.operatorProfile) {
-        user.operatorProfile.phone = dto.phone;
-        await this.operatorProfileRepository.save(user.operatorProfile);
-      }
+      await this.updateUserPhone(user, dto.phone);
     }
 
     return this.userRepository.save(user);
@@ -303,7 +202,7 @@ export class UsersService {
       throw new Error("User with this email already exists");
     }
 
-    // Normalize role - handle both enum and string values
+    // Normalize role
     const userRole = dto.role || UserRole.Tenant;
     const normalizedRole =
       typeof userRole === "string"
@@ -315,27 +214,27 @@ export class UsersService {
       email: dto.email,
       role: normalizedRole,
       status: UserStatus.Active,
-      password: await bcrypt.hash(dto.password, 10),
+      password: await bcrypt.hash(
+        dto.password,
+        USER_CONSTANTS.PASSWORD_SALT_ROUNDS
+      ),
     });
     const savedUser = await this.userRepository.save(user);
 
     // Create appropriate profile based on role
     if (normalizedRole === UserRole.Tenant) {
-      const tenantProfile = this.tenantProfileRepository.create({
-        user: savedUser,
-        full_name: dto.full_name,
-      });
       savedUser.tenantProfile =
-        await this.tenantProfileRepository.save(tenantProfile);
+        await this.userProfileService.createTenantProfile(
+          savedUser.id,
+          dto.full_name
+        );
     } else if (normalizedRole === UserRole.Operator) {
-      const operatorProfile = this.operatorProfileRepository.create({
-        user: savedUser,
-        full_name: dto.full_name,
-      });
       savedUser.operatorProfile =
-        await this.operatorProfileRepository.save(operatorProfile);
+        await this.userProfileService.createOperatorProfile(
+          savedUser.id,
+          dto.full_name
+        );
     }
-    // Note: Admin users don't need tenant or operator profiles
 
     // Return user with relations loaded
     return this.userRepository.findOne({
@@ -366,39 +265,7 @@ export class UsersService {
     await queryRunner.startTransaction();
 
     try {
-      // Delete related data in the correct order to avoid foreign key constraint violations
-
-      // Delete shortlists first (they reference user)
-      if (user.shortlists && user.shortlists.length > 0) {
-        await queryRunner.manager.delete("shortlist", { userId: id });
-      }
-
-      // Delete any properties owned by the user (if they are an operator)
-      // This should be done before deleting profiles
-      await queryRunner.manager.delete("properties", { operator_id: id });
-
-      // Delete any favourites by the user
-      await queryRunner.manager.delete("favourites", { userId: id });
-
-      // Delete tenant profile (they reference user via userId)
-      if (user.tenantProfile) {
-        await queryRunner.manager.delete("tenant_profiles", { userId: id });
-      }
-
-      // Delete operator profile (they reference user via userId)
-      if (user.operatorProfile) {
-        await queryRunner.manager.delete("operator_profiles", { userId: id });
-      }
-
-      // Delete preferences (they reference user via user_id)
-      // This should be done last among related entities since user has cascade to preferences
-      if (user.preferences) {
-        await queryRunner.manager.delete("preferences", { user_id: id });
-      }
-
-      // Finally delete the user
-      await queryRunner.manager.delete("users", { id: id });
-
+      await this.deleteUserData(queryRunner, user);
       await queryRunner.commitTransaction();
     } catch (error) {
       await queryRunner.rollbackTransaction();
@@ -410,21 +277,236 @@ export class UsersService {
   }
 
   async updateUserRole(userId: string, role: UserRole | string): Promise<User> {
-    const user = await this.findOne(userId);
-    if (!user) {
-      throw new Error("User not found");
+    return await this.userRoleService.updateUserRole(userId, role);
+  }
+
+  async runCleanupMigration(): Promise<any> {
+    console.log("🧹 Starting user profile cleanup migration...");
+
+    // Get all users with their profiles
+    const users = await this.userRepository
+      .createQueryBuilder("user")
+      .leftJoinAndSelect("user.tenantProfile", "tenantProfile")
+      .leftJoinAndSelect("user.operatorProfile", "operatorProfile")
+      .leftJoinAndSelect("user.preferences", "preferences")
+      .getMany();
+
+    console.log(`📊 Found ${users.length} users to process`);
+
+    let cleanedUsers = 0;
+    let removedTenantProfiles = 0;
+    let removedOperatorProfiles = 0;
+    let removedPreferences = 0;
+    let createdTenantProfiles = 0;
+    let createdOperatorProfiles = 0;
+    let createdPreferences = 0;
+
+    for (const user of users) {
+      console.log(`🔍 Processing user: ${user.email} (${user.role})`);
+
+      if (user.role === UserRole.Tenant) {
+        // Tenant should have tenant profile and preferences, but no operator profile
+        if (user.operatorProfile) {
+          console.log(`  ❌ Removing operator profile for tenant`);
+          await this.operatorProfileRepository.remove(user.operatorProfile);
+          removedOperatorProfiles++;
+        }
+
+        if (!user.tenantProfile) {
+          console.log(`  ✅ Creating missing tenant profile`);
+          const tenantProfile = this.tenantProfileRepository.create({
+            userId: user.id,
+            full_name: user.full_name,
+          });
+          await this.tenantProfileRepository.save(tenantProfile);
+          createdTenantProfiles++;
+        }
+
+        if (!user.preferences) {
+          console.log(`  ✅ Creating missing preferences`);
+          const preferences = this.preferencesRepository.create({
+            user_id: user.id,
+          });
+          await this.preferencesRepository.save(preferences);
+          createdPreferences++;
+        }
+      } else if (user.role === UserRole.Operator) {
+        // Operator should have operator profile, but no tenant profile or preferences
+        if (user.tenantProfile) {
+          console.log(`  ❌ Removing tenant profile for operator`);
+          await this.tenantProfileRepository.remove(user.tenantProfile);
+          removedTenantProfiles++;
+        }
+
+        if (user.preferences) {
+          console.log(`  ❌ Removing preferences for operator`);
+          await this.preferencesRepository.remove(user.preferences);
+          removedPreferences++;
+        }
+
+        if (!user.operatorProfile) {
+          console.log(`  ✅ Creating missing operator profile`);
+          const operatorProfile = this.operatorProfileRepository.create({
+            userId: user.id,
+            full_name: user.full_name,
+          });
+          await this.operatorProfileRepository.save(operatorProfile);
+          createdOperatorProfiles++;
+        }
+      } else if (user.role === UserRole.Admin) {
+        // Admin should have no profiles or preferences
+        if (user.tenantProfile) {
+          console.log(`  ❌ Removing tenant profile for admin`);
+          await this.tenantProfileRepository.remove(user.tenantProfile);
+          removedTenantProfiles++;
+        }
+
+        if (user.operatorProfile) {
+          console.log(`  ❌ Removing operator profile for admin`);
+          await this.operatorProfileRepository.remove(user.operatorProfile);
+          removedOperatorProfiles++;
+        }
+
+        if (user.preferences) {
+          console.log(`  ❌ Removing preferences for admin`);
+          await this.preferencesRepository.remove(user.preferences);
+          removedPreferences++;
+        }
+      } else {
+        // Handle users with null role - set them as tenants by default
+        console.log(`  ⚠️ User has null role, setting as tenant`);
+        await this.userRepository.update(user.id, { role: UserRole.Tenant });
+
+        if (!user.tenantProfile) {
+          const tenantProfile = this.tenantProfileRepository.create({
+            userId: user.id,
+            full_name: user.full_name,
+          });
+          await this.tenantProfileRepository.save(tenantProfile);
+          createdTenantProfiles++;
+        }
+
+        if (!user.preferences) {
+          const preferences = this.preferencesRepository.create({
+            user_id: user.id,
+          });
+          await this.preferencesRepository.save(preferences);
+          createdPreferences++;
+        }
+      }
+
+      cleanedUsers++;
     }
 
-    // Convert string to enum if needed
-    const roleEnum =
-      typeof role === "string"
-        ? Object.values(UserRole).find((r) => r === role) || UserRole.Tenant
-        : role;
+    console.log("✅ User profile cleanup completed:");
+    console.log(`  📊 Processed users: ${cleanedUsers}`);
+    console.log(`  🗑️ Removed tenant profiles: ${removedTenantProfiles}`);
+    console.log(`  🗑️ Removed operator profiles: ${removedOperatorProfiles}`);
+    console.log(`  🗑️ Removed preferences: ${removedPreferences}`);
+    console.log(`  ➕ Created tenant profiles: ${createdTenantProfiles}`);
+    console.log(`  ➕ Created operator profiles: ${createdOperatorProfiles}`);
+    console.log(`  ➕ Created preferences: ${createdPreferences}`);
 
-    // Update the user's role
-    await this.userRepository.update(userId, { role: roleEnum });
+    return {
+      processedUsers: cleanedUsers,
+      removedTenantProfiles,
+      removedOperatorProfiles,
+      removedPreferences,
+      createdTenantProfiles,
+      createdOperatorProfiles,
+      createdPreferences,
+    };
+  }
 
-    // Return the updated user
-    return this.findOne(userId);
+  // Private helper methods
+  private addPhoneToUser(user: User): void {
+    if (user.tenantProfile?.phone) {
+      (user as any).phone = user.tenantProfile.phone;
+    } else if (user.operatorProfile?.phone) {
+      (user as any).phone = user.operatorProfile.phone;
+    }
+  }
+
+  private async checkFullNameColumnExists(): Promise<boolean> {
+    const result = await this.userRepository.manager.query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name = 'users' AND column_name = 'full_name'
+    `);
+    return result.length > 0;
+  }
+
+  private buildUserQuery(
+    search: string,
+    hasFullNameColumn: boolean,
+    sortBy: string,
+    order: string,
+    skip: number,
+    limit: number
+  ) {
+    const query = this.userRepository
+      .createQueryBuilder("user")
+      .leftJoinAndSelect("user.tenantProfile", "tenantProfile")
+      .leftJoinAndSelect("user.operatorProfile", "operatorProfile");
+
+    if (search) {
+      if (hasFullNameColumn) {
+        query.where(
+          "user.full_name ILIKE :search OR user.email ILIKE :search",
+          {
+            search: `%${search}%`,
+          }
+        );
+      } else {
+        query.where(
+          "tenantProfile.full_name ILIKE :search OR operatorProfile.full_name ILIKE :search OR user.email ILIKE :search",
+          { search: `%${search}%` }
+        );
+      }
+    }
+
+    // Safe sorting with column existence check
+    if (sortBy === "full_name" && !hasFullNameColumn) {
+      query.orderBy("user.created_at", order as any);
+    } else {
+      query.orderBy(`user.${sortBy}`, order as any);
+    }
+
+    return query.skip(skip).take(limit);
+  }
+
+  private async deleteUserData(queryRunner: any, user: User): Promise<void> {
+    // Delete shortlists first (they reference user)
+    if (user.shortlists && user.shortlists.length > 0) {
+      await queryRunner.manager.delete("shortlist", { userId: user.id });
+    }
+
+    // Delete any properties owned by the user (if they are an operator)
+    await queryRunner.manager.delete("properties", { operator_id: user.id });
+
+    // Delete profiles and preferences
+    if (user.tenantProfile) {
+      await queryRunner.manager.delete("tenant_profiles", { userId: user.id });
+    }
+    if (user.operatorProfile) {
+      await queryRunner.manager.delete("operator_profiles", {
+        userId: user.id,
+      });
+    }
+    if (user.preferences) {
+      await queryRunner.manager.delete("preferences", { user_id: user.id });
+    }
+
+    // Finally delete the user
+    await queryRunner.manager.delete("users", { id: user.id });
+  }
+
+  private async updateUserPhone(user: User, phone: string): Promise<void> {
+    if (user.role === UserRole.Tenant && user.tenantProfile) {
+      user.tenantProfile.phone = phone;
+      await this.tenantProfileRepository.save(user.tenantProfile);
+    } else if (user.role === UserRole.Operator && user.operatorProfile) {
+      user.operatorProfile.phone = phone;
+      await this.operatorProfileRepository.save(user.operatorProfile);
+    }
   }
 }

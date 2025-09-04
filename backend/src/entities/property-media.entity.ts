@@ -73,13 +73,6 @@ export class PropertyMedia {
   @Column("int", { default: 0 })
   order_index: number;
 
-  @ApiProperty({
-    description: "Is this the main/featured image",
-    example: true,
-  })
-  @Column("boolean", { default: false })
-  is_featured: boolean;
-
   @ApiProperty({ description: "Media creation date" })
   @CreateDateColumn()
   created_at: Date;
@@ -95,4 +88,3 @@ export class PropertyMedia {
   @JoinColumn({ name: "property_id" })
   property: Property;
 }
- 

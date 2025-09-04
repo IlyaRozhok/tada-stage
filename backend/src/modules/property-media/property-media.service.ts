@@ -81,7 +81,6 @@ export class PropertyMediaService {
     userId: string,
     file: Express.Multer.File,
     orderIndex?: number,
-    isFeatured?: boolean,
     userRole?: string
   ): Promise<PropertyMedia> {
     console.log("🔧 PropertyMediaService.uploadFile started");
@@ -180,12 +179,6 @@ export class PropertyMediaService {
         console.log("✅ Order index set to:", orderIndex);
       }
 
-      // If this is the first media file, make it featured
-      if (existingMediaCount === 0) {
-        isFeatured = true;
-        console.log("✅ Set as featured (first media)");
-      }
-
       // Create media record
       console.log("🔧 Creating media record...");
       const media = this.propertyMediaRepository.create({
@@ -197,7 +190,6 @@ export class PropertyMediaService {
         original_filename: file.originalname,
         file_size: file.size,
         order_index: orderIndex,
-        is_featured: isFeatured || false,
       });
 
       const savedMedia = await this.propertyMediaRepository.save(media);
@@ -301,48 +293,5 @@ export class PropertyMediaService {
     }
 
     return await this.getPropertyMedia(propertyId);
-  }
-
-  /**
-   * Set featured media
-   */
-  async setFeaturedMedia(
-    mediaId: string,
-    userId: string,
-    userRole?: string
-  ): Promise<PropertyMedia> {
-    const media = await this.propertyMediaRepository.findOne({
-      where: { id: mediaId },
-      relations: ["property"],
-    });
-
-    if (!media) {
-      throw new NotFoundException("Media not found");
-    }
-
-    // Allow admins to update any property, otherwise check ownership
-    if (userRole !== "admin" && media.property.operator_id !== userId) {
-      console.log(
-        "❌ Set featured access denied - user does not own property and is not admin"
-      );
-      console.log("- User role:", userRole);
-      console.log("- Property operator_id:", media.property.operator_id);
-      console.log("- User id:", userId);
-      throw new ForbiddenException(
-        "You can only update media for your own properties"
-      );
-    }
-
-    console.log("✅ Set featured access verified (admin or owner)");
-
-    // Remove featured status from all media for this property
-    await this.propertyMediaRepository.update(
-      { property_id: media.property_id },
-      { is_featured: false }
-    );
-
-    // Set this media as featured
-    media.is_featured = true;
-    return await this.propertyMediaRepository.save(media);
   }
 }

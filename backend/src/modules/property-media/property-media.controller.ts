@@ -58,7 +58,6 @@ export class PropertyMediaController {
       req.user.id,
       file,
       undefined,
-      undefined,
       req.user.role
     );
   }
@@ -136,36 +135,6 @@ export class PropertyMediaController {
       propertyId,
       user.id,
       mediaOrders,
-      user.role
-    );
-  }
-
-  @Put(":mediaId/featured")
-  @Auth("operator", "admin")
-  @ApiOperation({
-    summary: "Set media as featured",
-    description: "Mark a media file as the featured image for the property",
-  })
-  @ApiResponse({
-    status: 200,
-    description: "Featured media updated successfully",
-    type: PropertyMedia,
-  })
-  @ApiResponse({
-    status: 403,
-    description: "Not authorized to update media for this property",
-  })
-  @ApiResponse({
-    status: 404,
-    description: "Media not found",
-  })
-  async setFeaturedMedia(
-    @Param("mediaId") mediaId: string,
-    @CurrentUser() user: User
-  ): Promise<PropertyMedia> {
-    return await this.propertyMediaService.setFeaturedMedia(
-      mediaId,
-      user.id,
       user.role
     );
   }

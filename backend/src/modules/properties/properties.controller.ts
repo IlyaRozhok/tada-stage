@@ -88,17 +88,6 @@ export class PropertiesController {
     return await this.propertiesService.findByOperator(req.user.id);
   }
 
-  @ApiOperation({ summary: "Get featured properties for homepage" })
-  @ApiResponse({
-    status: 200,
-    description: "Featured properties retrieved",
-    type: [Property],
-  })
-  @Get("featured")
-  async getFeaturedProperties(@Query("limit") limit?: number) {
-    return await this.propertiesService.findFeaturedProperties(limit || 6);
-  }
-
   @ApiOperation({ summary: "Get public properties (no auth required)" })
   @ApiResponse({
     status: 200,
@@ -113,7 +102,6 @@ export class PropertiesController {
     @Query("sortBy") sortBy?: string,
     @Query("order") order?: "ASC" | "DESC"
   ) {
-  
     const pageNum = parseInt(page as any) || 1;
     const limitNum = Math.min(parseInt(limit as any) || 12, 12);
 
@@ -125,7 +113,6 @@ export class PropertiesController {
       order
     );
 
-  
     return {
       data: result.properties,
       total: result.total,

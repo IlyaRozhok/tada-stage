@@ -7,7 +7,6 @@ import { Preferences } from "../entities/preferences.entity";
 import { Property } from "../entities/property.entity";
 import { PropertyMedia } from "../entities/property-media.entity";
 import { Shortlist } from "../entities/shortlist.entity";
-import { Favourite } from "../entities/favourite.entity";
 import * as path from "path";
 
 // Load environment variables
@@ -28,9 +27,8 @@ export const dataSourceOptions: DataSourceOptions = {
     Property,
     PropertyMedia,
     Shortlist,
-    Favourite,
   ],
-  migrations: [path.join(__dirname, 'migrations/*{.ts,.js}')],
+  migrations: [path.join(__dirname, "migrations/*{.ts,.js}")],
   synchronize: process.env.NODE_ENV === "development",
   logging: process.env.NODE_ENV === "development",
   ssl: process.env.NODE_ENV === "production",

@@ -3,19 +3,19 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { ConfigModule } from "@nestjs/config";
 import { PropertiesService } from "./properties.service";
 import { PropertiesController } from "./properties.controller";
+import { PropertyMediaService } from "./services/property-media.service";
 import { Property } from "../../entities/property.entity";
-import { Favourite } from "../../entities/favourite.entity";
+import { PropertyMedia } from "../../entities/property-media.entity";
 import { Shortlist } from "../../entities/shortlist.entity";
 import { User } from "../../entities/user.entity";
 import { TenantProfile } from "../../entities/tenant-profile.entity";
 import { MatchingModule } from "../matching/matching.module";
-import { S3Service } from "../../common/services/s3.service";
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([
       Property,
-      Favourite,
+      PropertyMedia,
       Shortlist,
       User,
       TenantProfile,
@@ -24,7 +24,7 @@ import { S3Service } from "../../common/services/s3.service";
     ConfigModule,
   ],
   controllers: [PropertiesController],
-  providers: [PropertiesService, S3Service],
-  exports: [PropertiesService],
+  providers: [PropertiesService, PropertyMediaService],
+  exports: [PropertiesService, PropertyMediaService],
 })
 export class PropertiesModule {}

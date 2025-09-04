@@ -3,7 +3,6 @@ import { ValidationPipe } from "@nestjs/common";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import { NestExpressApplication } from "@nestjs/platform-express";
 import helmet from "helmet";
-import * as path from "path";
 import { AppModule } from "./app.module";
 
 async function bootstrap() {
@@ -13,9 +12,8 @@ async function bootstrap() {
   app.use(require("express").json({ limit: "10mb" }));
   app.use(require("express").urlencoded({ limit: "10mb", extended: true }));
 
-  // Настройка CORS
   app.enableCors({
-    origin: ["http://localhost:3000","https://stage.ta-da.co"],
+    origin: ["http://localhost:3000", "https://stage.ta-da.co"],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],

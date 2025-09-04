@@ -79,6 +79,7 @@ export class AuthController {
 
   @Post("register")
   async register(@Body() registerDto: RegisterDto) {
+    console.log("🔍 Register endpoint called with role:", registerDto.role);
     const result = await this.authService.register(registerDto);
     return result;
   }

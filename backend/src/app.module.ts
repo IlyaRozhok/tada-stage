@@ -1,5 +1,5 @@
 import { Module } from "@nestjs/common";
-import { ConfigModule, ConfigService } from "@nestjs/config";
+import { ConfigModule } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
 
 import { AppController } from "./app.controller";
@@ -11,22 +11,21 @@ import { MatchingModule } from "./modules/matching/matching.module";
 import { PropertiesModule } from "./modules/properties/properties.module";
 import { PropertyMediaModule } from "./modules/property-media/property-media.module";
 import { ShortlistModule } from "./modules/shortlist/shortlist.module";
-import { FavouritesModule } from "./modules/favourites/favourites.module";
 import { OperatorModule } from "./modules/operator/operator.module";
-import { FeaturedModule } from "./modules/featured/featured.module";
-import { S3Service } from "./common/services/s3.service";
+import { S3Module } from "./common/services/s3.module";
 import { typeOrmConfig } from "./database/typeorm.config";
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: process.env.NODE_ENV ? undefined : '.env', 
-      ignoreEnvFile: !!process.env.NODE_ENV, 
+      envFilePath: process.env.NODE_ENV ? undefined : ".env",
+      ignoreEnvFile: !!process.env.NODE_ENV,
     }),
     TypeOrmModule.forRootAsync({
       useFactory: () => typeOrmConfig(process.env),
     }),
+    S3Module,
 
     AuthModule,
     UsersModule,
@@ -35,13 +34,9 @@ import { typeOrmConfig } from "./database/typeorm.config";
     PropertiesModule,
     PropertyMediaModule,
     ShortlistModule,
-    FavouritesModule,
     OperatorModule,
-    FeaturedModule,
   ],
   controllers: [AppController],
-  providers: [S3Service],
+  providers: [],
 })
 export class AppModule {}
-
-
