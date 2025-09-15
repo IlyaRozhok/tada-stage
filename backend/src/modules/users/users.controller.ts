@@ -98,23 +98,6 @@ export class UsersController {
     return { message: "Account deleted successfully" };
   }
 
-  @Post("admin/run-migration/cleanup-profiles")
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("admin")
-  @ApiBearerAuth("access-token")
-  @ApiOperation({ summary: "Run profile cleanup migration (Admin only)" })
-  @ApiResponse({
-    status: 200,
-    description: "Migration completed successfully",
-  })
-  async runCleanupMigration(): Promise<{ message: string; stats: any }> {
-    const result = await this.usersService.runCleanupMigration();
-    return {
-      message: "Profile cleanup migration completed successfully",
-      stats: result,
-    };
-  }
-
   @Get("")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("admin")
@@ -126,14 +109,14 @@ export class UsersController {
     @Query("limit") limit: string = "10",
     @Query("search") search?: string,
     @Query("sortBy") sortBy: string = "created_at",
-    @Query("order") order: "ASC" | "DESC" = "DESC"
+    @Query("sortOrder") sortOrder: "ASC" | "DESC" = "DESC"
   ) {
     return this.usersService.findAllPaginated({
       page: parseInt(page),
       limit: parseInt(limit),
       search,
       sortBy,
-      order,
+      sortOrder,
     });
   }
 

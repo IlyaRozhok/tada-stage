@@ -35,7 +35,7 @@ export class AuthService {
 
   async register(registerDto: RegisterDto) {
     const { email, password, role = UserRole.Tenant } = registerDto;
-    console.log("🔍 Registering user with role:", role);
+    console.log("🔍 Registering user with email:", email, "role:", role);
 
     // Validate registration data
     await this.authValidationService.validateRegistration(registerDto);
@@ -68,6 +68,9 @@ export class AuthService {
       const accessToken = this.authTokenService.generateAccessToken(savedUser);
       const refreshToken =
         this.authTokenService.generateRefreshToken(savedUser);
+
+      console.log("🔑 Generated tokens for user:", savedUser.id);
+      console.log("🔑 Access token:", accessToken);
 
       return {
         user: {
@@ -107,149 +110,14 @@ export class AuthService {
     };
   }
 
-  async refreshToken(refreshToken: string) {
-    try {
-      const payload = this.authTokenService.verifyToken(refreshToken);
-
-      if (payload.type !== "refresh") {
-        throw new UnauthorizedException("Invalid refresh token");
-      }
-
-      const user = await this.userRepository.findOne({
-        where: { id: payload.sub },
-      });
-
-      if (!user || user.status !== UserStatus.Active) {
-        throw new UnauthorizedException("User not found or inactive");
-      }
-
-      const newAccessToken = this.authTokenService.generateAccessToken(user);
-      const newRefreshToken = this.authTokenService.generateRefreshToken(user);
-
-      return {
-        accessToken: newAccessToken,
-        refreshToken: newRefreshToken,
-      };
-    } catch (error) {
-      throw new UnauthorizedException("Invalid refresh token");
-    }
-  }
-
-  async checkUserExists(email: string): Promise<boolean> {
-    return this.authValidationService.checkUserExists(email);
-  }
-
-  // Admin session management
-  async createAdminSession(userId: string, deviceInfo?: string) {
-    const user = await this.userRepository.findOne({
-      where: { id: userId },
-    });
-
-    if (!user || user.role !== UserRole.Admin) {
-      throw new UnauthorizedException("Admin access required");
-    }
-
-    const token = this.authTokenService.generateSecureToken();
-    const session = this.authTokenService.createAdminSession(
-      userId,
-      token,
-      deviceInfo
-    );
+  async refresh(user: User) {
+    const accessToken = this.authTokenService.generateAccessToken(user);
+    const refreshToken = this.authTokenService.generateRefreshToken(user);
 
     return {
-      sessionId: session.id,
-      token,
-      createdAt: session.createdAt,
+      accessToken,
+      refreshToken,
     };
-  }
-
-  async getAdminSessions(userId: string) {
-    const user = await this.userRepository.findOne({
-      where: { id: userId },
-    });
-
-    if (!user || user.role !== UserRole.Admin) {
-      throw new UnauthorizedException("Admin access required");
-    }
-
-    return this.authTokenService.getAdminSessions(userId);
-  }
-
-  async removeAdminSession(userId: string, sessionId: string) {
-    const user = await this.userRepository.findOne({
-      where: { id: userId },
-    });
-
-    if (!user || user.role !== UserRole.Admin) {
-      throw new UnauthorizedException("Admin access required");
-    }
-
-    return this.authTokenService.removeAdminSession(userId, sessionId);
-  }
-
-  async clearAllAdminSessions(userId: string) {
-    const user = await this.userRepository.findOne({
-      where: { id: userId },
-    });
-
-    if (!user || user.role !== UserRole.Admin) {
-      throw new UnauthorizedException("Admin access required");
-    }
-
-    this.authTokenService.clearAllAdminSessions(userId);
-  }
-
-  // Google OAuth methods
-  async createTempGoogleToken(googleUserData: any) {
-    return this.authTokenService.createTempGoogleToken(googleUserData);
-  }
-
-  async getTempGoogleToken(tokenId: string) {
-    return this.authTokenService.getTempGoogleToken(tokenId);
-  }
-
-  async removeTempGoogleToken(tokenId: string) {
-    return this.authTokenService.removeTempGoogleToken(tokenId);
-  }
-
-  // Cleanup method
-  async cleanupExpiredTokens() {
-    this.authTokenService.cleanupExpiredTokens();
-  }
-
-  // Additional methods for controller compatibility
-  async logout(userId: string, token: string): Promise<void> {
-    // Implementation for logout
-    console.log(`User ${userId} logged out`);
-  }
-
-  async logoutAllDevices(userId: string): Promise<void> {
-    this.authTokenService.clearAllAdminSessions(userId);
-  }
-
-  async logoutOtherDevices(
-    userId: string,
-    currentToken: string
-  ): Promise<void> {
-    const sessions = this.authTokenService.getAdminSessions(userId);
-    sessions.forEach((session) => {
-      if (session.token !== currentToken) {
-        this.authTokenService.removeAdminSession(userId, session.id);
-      }
-    });
-  }
-
-  async getUserSessions(userId: string): Promise<any[]> {
-    return this.authTokenService.getAdminSessions(userId);
-  }
-
-  async invalidateSession(userId: string, sessionId: string): Promise<boolean> {
-    return this.authTokenService.removeAdminSession(userId, sessionId);
-  }
-
-  async updateSessionActivity(userId: string, token: string): Promise<void> {
-    // Update session activity
-    console.log(`Updated activity for user ${userId}`);
   }
 
   async findUserWithProfile(userId: string): Promise<User> {
@@ -259,85 +127,142 @@ export class AuthService {
     });
   }
 
-  async refresh(user: User): Promise<any> {
-    const accessToken = this.authTokenService.generateAccessToken(user);
-    const refreshToken = this.authTokenService.generateRefreshToken(user);
-    return { accessToken, refreshToken };
+  async checkUserExists(email: string): Promise<boolean> {
+    const user = await this.userRepository.findOne({
+      where: { email: email.toLowerCase() },
+    });
+    return !!user;
   }
 
-  async googleAuth(googleUser: any): Promise<any> {
-    // Implementation for Google auth
-    return { user: googleUser };
+  // Session management
+  async logout(userId: string, token: string) {
+    return this.authTokenService.invalidateToken(userId, token);
   }
 
-  async generateTokens(user: User): Promise<any> {
-    const accessToken = this.authTokenService.generateAccessToken(user);
-    const refreshToken = this.authTokenService.generateRefreshToken(user);
-    return { accessToken, refreshToken };
+  async logoutAllDevices(userId: string) {
+    return this.authTokenService.invalidateAllUserTokens(userId);
   }
 
-  async setUserRole(userId: string, role: string): Promise<User> {
-    // Implementation for setting user role
-    const user = await this.userRepository.findOne({ where: { id: userId } });
-    if (user) {
-      user.role = role as UserRole;
-      return this.userRepository.save(user);
+  async logoutOtherDevices(userId: string, currentToken: string) {
+    return this.authTokenService.invalidateOtherUserTokens(
+      userId,
+      currentToken
+    );
+  }
+
+  async getUserSessions(userId: string) {
+    return this.authTokenService.getUserSessions(userId);
+  }
+
+  async invalidateSession(userId: string, sessionId: string) {
+    return this.authTokenService.invalidateSession(userId, sessionId);
+  }
+
+  async updateSessionActivity(userId: string, token: string) {
+    return this.authTokenService.updateSessionActivity(userId, token);
+  }
+
+  // Google OAuth methods
+  async googleAuth(googleUser: any): Promise<User> {
+    // Find or create user from Google data
+    let user = await this.userRepository.findOne({
+      where: { google_id: googleUser.google_id },
+    });
+
+    if (!user) {
+      // Create new user from Google data
+      user = this.userRepository.create({
+        email: googleUser.email.toLowerCase(),
+        google_id: googleUser.google_id,
+        role: UserRole.Tenant, // Default role
+        status: UserStatus.Active,
+      });
+
+      user = await this.userRepository.save(user);
+
+      // Create tenant profile for Google users
+      await this.createTenantProfile(user);
     }
-    throw new Error("User not found");
+
+    return user;
   }
 
-  async getTempTokenInfo(token: string): Promise<any> {
-    return this.authTokenService.getTempGoogleToken(token);
-  }
+  async createGoogleUserFromTempToken(tempToken: string, role: UserRole) {
+    const tokenInfo = await this.authTokenService.getTempTokenInfo(tempToken);
 
-  async createGoogleUserFromTempToken(
-    tempToken: string,
-    role: string
-  ): Promise<User> {
-    const tokenInfo = this.authTokenService.getTempGoogleToken(tempToken);
     if (!tokenInfo) {
-      throw new Error("Invalid or expired token");
+      throw new BadRequestException("Invalid temporary token");
     }
 
     const user = this.userRepository.create({
       email: tokenInfo.googleUserData.email,
-      role: role as UserRole,
+      google_id: tokenInfo.googleUserData.google_id,
+      role: role,
       status: UserStatus.Active,
     });
 
-    return this.userRepository.save(user);
+    const savedUser = await this.userRepository.save(user);
+
+    if (role === UserRole.Tenant) {
+      await this.createTenantProfile(savedUser);
+    } else if (role === UserRole.Operator) {
+      await this.createOperatorProfile(savedUser);
+    }
+
+    return savedUser;
   }
 
-  async createGoogleUserWithRole(
-    googleUserData: any,
-    role: string
-  ): Promise<User> {
-    const user = this.userRepository.create({
-      email: googleUserData.email,
-      role: role as UserRole,
-      status: UserStatus.Active,
-    });
+  async generateTokens(user: User) {
+    const accessToken = this.authTokenService.generateAccessToken(user);
+    const refreshToken = this.authTokenService.generateRefreshToken(user);
 
-    return this.userRepository.save(user);
+    return {
+      accessToken,
+      refreshToken,
+    };
   }
 
-  // Private helper methods
+  // Profile creation methods
   private async createTenantProfile(user: User): Promise<void> {
     const tenantProfile = this.tenantProfileRepository.create({
       userId: user.id,
+      full_name: null,
+      phone: "",
+      date_of_birth: null,
+      nationality: "",
+      occupation: "",
+      industry: "",
+      work_style: "",
+      lifestyle: [],
+      ideal_living_environment: "",
+      additional_info: "",
+      shortlisted_properties: [],
     });
-    await this.tenantProfileRepository.save(tenantProfile);
 
-    const preferences = this.preferencesRepository.create({
-      user_id: user.id,
-    });
-    await this.preferencesRepository.save(preferences);
+    await this.tenantProfileRepository.save(tenantProfile);
   }
 
   private async createOperatorProfile(user: User): Promise<void> {
     const operatorProfile = this.operatorProfileRepository.create({
       userId: user.id,
+      full_name: null,
+      phone: "",
+      company_name: "",
+      date_of_birth: null,
+      nationality: "",
+      business_address: "",
+      company_registration: "",
+      vat_number: "",
+      license_number: "",
+      years_experience: null,
+      operating_areas: [],
+      property_types: [],
+      services: [],
+      business_description: "",
+      website: "",
+      linkedin: "",
     });
+
     await this.operatorProfileRepository.save(operatorProfile);
   }
 }

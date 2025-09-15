@@ -52,19 +52,32 @@ export class AuthValidationService {
   async validateLogin(loginDto: LoginDto): Promise<User> {
     const { email, password } = loginDto;
 
+    console.log("🔍 Login attempt for email:", email, "password provided:", !!password);
+
     // Validate email format
     if (!this.isValidEmail(email)) {
       throw new BadRequestException("Invalid email format");
+    }
+
+    // Validate password
+    if (!password || password.trim() === "") {
+      throw new BadRequestException("Password is required");
     }
 
     // Find user
     const user = await this.userRepository.findOne({
       where: { email: email.toLowerCase() },
       relations: ["preferences", "tenantProfile", "operatorProfile"],
+      select: ["id", "email", "password", "role", "status", "google_id", "created_at", "updated_at"],
     });
 
     if (!user) {
       throw new UnauthorizedException("Invalid credentials");
+    }
+
+    // Check if user has a password (for Google users)
+    if (!user.password) {
+      throw new UnauthorizedException("This account uses Google authentication");
     }
 
     // Validate password
@@ -88,14 +101,6 @@ export class AuthValidationService {
     return !!user;
   }
 
-  async validateEmail(email: string): Promise<boolean> {
-    return this.isValidEmail(email);
-  }
-
-  async validatePassword(password: string): Promise<boolean> {
-    return this.isValidPassword(password);
-  }
-
   private isValidEmail(email: string): boolean {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
@@ -109,3 +114,4 @@ export class AuthValidationService {
     return Object.values(UserRole).includes(role);
   }
 }
+

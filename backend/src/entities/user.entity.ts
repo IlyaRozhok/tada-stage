@@ -151,4 +151,15 @@ export class User {
     }
     return null;
   }
+
+  // Computed property for phone from profiles
+  get phone(): string | null {
+    if (this.tenantProfile?.phone) {
+      return this.tenantProfile.phone;
+    }
+    if (this.operatorProfile?.phone) {
+      return this.operatorProfile.phone;
+    }
+    return null;
+  }
 }

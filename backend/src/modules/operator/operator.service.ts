@@ -50,11 +50,6 @@ export class OperatorService {
     console.log("🔍 OperatorService.getTenants called with:", { operatorId });
 
     try {
-      // Временная заглушка для тестирования
-      console.log("⚠️ Using temporary fallback for getTenants");
-      return [];
-
-      // TODO: Восстановить после исправления связей
       // Get all tenants who have shortlisted at least one of operator's properties
       const tenants = await this.userRepository
         .createQueryBuilder("user")
@@ -146,7 +141,9 @@ export class OperatorService {
     // For now, we'll just return success
     return {
       success: true,
-      message: `Property "${property.title}" suggested to ${tenant.tenantProfile?.full_name || tenant.email}`,
+      message: `Property "${property.title}" suggested to ${
+        tenant.tenantProfile?.full_name || tenant.email
+      }`,
       property: {
         id: property.id,
         title: property.title,

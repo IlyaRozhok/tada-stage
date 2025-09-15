@@ -15,7 +15,8 @@
     "typeorm:dev": "typeorm-ts-node-commonjs -d src/database/data-source.ts",
     "typeorm:prod": "typeorm -d dist/database/data-source.js",
     "migration:run:dev": "npm run typeorm:dev migration:run",
-    "migration:run:prod": "npm run typeorm:prod migration:run"
+    "migration:run:prod": "npm run typeorm:prod migration:run",
+    "clean:test-users": "node scripts/clean-test-users.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.842.0",

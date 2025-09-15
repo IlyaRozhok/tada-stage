@@ -132,4 +132,22 @@ export class UserProfileService {
     });
     return await this.preferencesRepository.save(preferences);
   }
+
+  async deleteUserData(user: User): Promise<void> {
+    // Delete preferences
+    if (user.preferences) {
+      await this.preferencesRepository.remove(user.preferences);
+    }
+
+    // Delete tenant profile
+    if (user.tenantProfile) {
+      await this.tenantProfileRepository.remove(user.tenantProfile);
+    }
+
+    // Delete operator profile
+    if (user.operatorProfile) {
+      await this.operatorProfileRepository.remove(user.operatorProfile);
+    }
+  }
 }
+

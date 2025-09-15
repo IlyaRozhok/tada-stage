@@ -7,8 +7,6 @@ import { User } from "../../entities/user.entity";
 import { MatchingCalculationService } from "./services/matching-calculation.service";
 import { MatchingFilterService } from "./services/matching-filter.service";
 import { MatchingMediaService } from "./services/matching-media.service";
-import { MatchingNotificationService } from "./services/matching-notification.service";
-import { MatchingCacheService } from "./services/matching-cache.service";
 
 export interface MatchingResult {
   property: Property;
@@ -28,9 +26,7 @@ export class MatchingService {
     private readonly userRepository: Repository<User>,
     private readonly matchingCalculationService: MatchingCalculationService,
     private readonly matchingFilterService: MatchingFilterService,
-    private readonly matchingMediaService: MatchingMediaService,
-    private readonly matchingNotificationService: MatchingNotificationService,
-    private readonly matchingCacheService: MatchingCacheService
+    private readonly matchingMediaService: MatchingMediaService
   ) {}
 
   /**
@@ -43,15 +39,6 @@ export class MatchingService {
     console.log(
       `🔍 Finding matched properties for user: ${userId}, limit: ${limit}`
     );
-
-    // Check cache first
-    const cacheKey = this.matchingCacheService.getUserMatchesKey(userId, limit);
-    const cachedResult = this.matchingCacheService.get<Property[]>(cacheKey);
-
-    if (cachedResult) {
-      console.log(`📦 Returning cached results for user ${userId}`);
-      return cachedResult;
-    }
 
     // Get user preferences
     const preferences = await this.preferencesRepository.findOne({
@@ -77,8 +64,6 @@ export class MatchingService {
 
     console.log(`🏠 Total properties available: ${allProperties.length}`);
 
-    let matchedProperties: Property[];
-
     if (!preferences) {
       // If no preferences set, return properties by date
       console.log(
@@ -87,51 +72,46 @@ export class MatchingService {
           allProperties.length
         )} properties by date`
       );
-      matchedProperties = allProperties.slice(0, limit);
-    } else {
-      // Apply hard filters
-      const candidateProperties = this.matchingFilterService.applyHardFilters(
-        allProperties,
-        preferences
-      );
-
-      // Score and sort properties
-      const scoredProperties =
-        this.matchingFilterService.scoreAndSortProperties(
-          candidateProperties,
-          preferences,
-          limit
+      const propertiesWithUrls =
+        await this.matchingMediaService.updateMultiplePropertiesMediaUrls(
+          allProperties.slice(0, limit)
         );
+      return propertiesWithUrls;
+    }
 
-      matchedProperties = scoredProperties.map((scored) => scored.property);
+    // Apply hard filters
+    const candidateProperties = this.matchingFilterService.applyHardFilters(
+      allProperties,
+      preferences
+    );
 
+    // Score and sort properties
+    const scoredProperties = this.matchingFilterService.scoreAndSortProperties(
+      candidateProperties,
+      preferences,
+      limit
+    );
+
+    const matchedProperties = scoredProperties.map((scored) => scored.property);
+
+    console.log(`✅ Returning ${matchedProperties.length} matched properties`);
+    if (scoredProperties.length > 0) {
       console.log(
-        `✅ Returning ${matchedProperties.length} matched properties`
+        `📊 Top 3 match scores:`,
+        scoredProperties.slice(0, 3).map((s) => ({
+          property_id: s.property.id,
+          score: Math.round(s.score * 100) / 100,
+          price: s.property.price,
+          bedrooms: s.property.bedrooms,
+          type: s.property.property_type,
+        }))
       );
-      if (scoredProperties.length > 0) {
-        console.log(
-          `📊 Top 3 match scores:`,
-          scoredProperties.slice(0, 3).map((s) => ({
-            property_id: s.property.id,
-            score: Math.round(s.score * 100) / 100,
-            price: s.property.price,
-            bedrooms: s.property.bedrooms,
-            type: s.property.property_type,
-          }))
-        );
-      }
     }
 
     // Update presigned URLs for media files
-    const propertiesWithUrls =
-      await this.matchingMediaService.updateMultiplePropertiesMediaUrls(
-        matchedProperties
-      );
-
-    // Cache the result
-    this.matchingCacheService.set(cacheKey, propertiesWithUrls);
-
-    return propertiesWithUrls;
+    return await this.matchingMediaService.updateMultiplePropertiesMediaUrls(
+      matchedProperties
+    );
   }
 
   /**
@@ -261,93 +241,13 @@ export class MatchingService {
    * This is called when a property is created or updated to ensure fresh matches
    */
   async generateMatches(propertyId: string): Promise<void> {
-    console.log(`🔄 Generating matches for property ${propertyId}`);
+    // This method can be used to trigger matching calculations
+    // For now, it's a placeholder since matching is calculated on-demand
+    // In the future, this could:
+    // 1. Pre-calculate and store matches in a cache/database
+    // 2. Send notifications to matching tenants
+    // 3. Update search indexes
 
-    // Get the property
-    const property = await this.propertyRepository.findOne({
-      where: { id: propertyId },
-      relations: ["operator", "media"],
-    });
-
-    if (!property) {
-      console.log(`❌ Property ${propertyId} not found`);
-      return;
-    }
-
-    // Get all tenant preferences
-    const allPreferences = await this.preferencesRepository.find({
-      relations: ["user"],
-    });
-
-    console.log(
-      `👥 Found ${allPreferences.length} tenant preferences to check`
-    );
-
-    const notifications: Array<{
-      userId: string;
-      property: Property;
-      matchScore: number;
-      reasons: string[];
-      type: "perfect" | "high-score";
-    }> = [];
-
-    // Check matches for each tenant
-    for (const preferences of allPreferences) {
-      if (!preferences.user || preferences.user.role !== "tenant") {
-        continue;
-      }
-
-      // Apply hard filters
-      const candidateProperties = this.matchingFilterService.applyHardFilters(
-        [property],
-        preferences
-      );
-
-      if (candidateProperties.length === 0) {
-        continue;
-      }
-
-      // Calculate match score
-      const matchScore = this.matchingCalculationService.calculateMatchScore(
-        property,
-        preferences
-      );
-
-      // Check if it's a perfect match or high-score match
-      if (matchScore.perfectMatch) {
-        notifications.push({
-          userId: preferences.user_id,
-          property,
-          matchScore: matchScore.score,
-          reasons: matchScore.reasons,
-          type: "perfect",
-        });
-      } else if (matchScore.score >= 80) {
-        notifications.push({
-          userId: preferences.user_id,
-          property,
-          matchScore: matchScore.score,
-          reasons: matchScore.reasons,
-          type: "high-score",
-        });
-      }
-    }
-
-    // Send notifications
-    if (notifications.length > 0) {
-      await this.matchingNotificationService.batchNotifyMatches(notifications);
-      console.log(`📬 Sent ${notifications.length} match notifications`);
-    }
-
-    // Invalidate cache for affected users
-    const affectedUserIds = notifications.map((n) => n.userId);
-    affectedUserIds.forEach((userId) => {
-      this.matchingCacheService.invalidateUserCache(userId);
-    });
-
-    // Invalidate property cache
-    this.matchingCacheService.invalidatePropertyCache(propertyId);
-
-    console.log(`✅ Generated matches for property ${propertyId}`);
+    console.log(`Generated matches for property ${propertyId}`);
   }
 }

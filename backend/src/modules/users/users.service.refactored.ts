@@ -57,7 +57,7 @@ export class UsersService {
     // Обновить профиль в зависимости от роли
     if (user.role === UserRole.Tenant) {
       await this.userProfileService.updateTenantProfile(user, updateUserDto);
-      
+
       // Обновить предпочтения если нужно
       if (
         updateUserDto.pets !== undefined ||
@@ -78,7 +78,7 @@ export class UsersService {
    */
   async deleteAccount(id: string): Promise<void> {
     const user = await this.userQueryService.findOneForDeletion(id);
-    
+
     // Удалить все связанные данные
     await this.userProfileService.deleteUserData(user);
   }
@@ -116,7 +116,10 @@ export class UsersService {
   /**
    * Изменить роль пользователя (админ)
    */
-  async adminChangeUserRole(userId: string, newRole: UserRole | string): Promise<User> {
+  async adminChangeUserRole(
+    userId: string,
+    newRole: UserRole | string
+  ): Promise<User> {
     return this.userAdminService.changeUserRole(userId, newRole);
   }
 }

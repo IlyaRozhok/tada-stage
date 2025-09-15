@@ -187,3 +187,4 @@ export class UserRoleService {
     await queryRunner.manager.save(OperatorProfile, operatorProfile);
   }
 }
+

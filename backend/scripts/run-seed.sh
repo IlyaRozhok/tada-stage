@@ -1,30 +1,20 @@
 #!/bin/bash
 
 echo "🚀 Starting database seeding..."
-echo "📋 This will create 5 operators with 5 properties each"
+echo "📋 This will create 5 operators with 4 properties each and add images"
 echo ""
 
-# Check if backend is running
-echo "🔍 Checking if backend server is running..."
-if curl -s http://localhost:3001/health > /dev/null 2>&1; then
-    echo "✅ Backend server is running"
-else
-    echo "❌ Backend server is not running on http://localhost:3001"
-    echo "Please start the backend server first:"
-    echo "cd tada-api-stage/backend && npm run start:dev"
-    exit 1
-fi
 
 # Install axios if not installed
 echo "📦 Installing axios if needed..."
 npm install axios
 
 # Run the seeding script
-echo "🌱 Running seeding script..."
-node seed-operators.js
+echo "🌱 Running database seeding script..."
+node seed-database.js
 
 echo ""
-echo "🎉 Seeding completed!"
+echo "🎉 Database seeding completed!"
 echo ""
 echo "📝 LOGIN CREDENTIALS:"
 echo "==================="
@@ -34,4 +24,7 @@ echo "3. operator3@tada.com / password123"
 echo "4. operator4@tada.com / password123"
 echo "5. operator5@tada.com / password123"
 echo ""
-echo "You can now login as any of these operators to manage their properties."
+echo "📸 Each property now has 4 high-quality images"
+echo "🏠 Total: 20 properties with 80+ images"
+echo ""
+echo "You can now login as any of these operators to manage their properties with images."

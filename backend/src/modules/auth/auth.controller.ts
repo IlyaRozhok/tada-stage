@@ -5,81 +5,32 @@ import {
   UseGuards,
   Get,
   Req,
-  Res,
-  UnauthorizedException,
-  BadRequestException,
-  Query,
-  Delete,
-  Param,
   HttpCode,
   HttpStatus,
+  UnauthorizedException,
+  Res,
 } from "@nestjs/common";
 import { AuthService } from "./auth.service";
 import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
-import { AuthGuard } from "@nestjs/passport";
 import { Request, Response } from "express";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
-import { User, UserRole } from "../../entities/user.entity";
+import { User } from "../../entities/user.entity";
+import { AuthGuard } from "@nestjs/passport";
 
 @Controller("auth")
 export class AuthController {
   constructor(private authService: AuthService) {}
 
-  // Check if user exists
-  @Post("check-user")
-  @HttpCode(HttpStatus.OK)
-  async checkUser(@Body("email") email: string) {
-    const exists = await this.authService.checkUserExists(email);
-    return { exists };
-  }
-
-  // Universal auth endpoint
-  @Post("authenticate")
-  async authenticate(
-    @Body()
-    body: {
-      email: string;
-      password: string;
-      role?: "tenant" | "operator";
-      rememberMe?: boolean;
-    }
-  ) {
-    const { email, password, role, rememberMe } = body;
-
-    // Check if user exists
-    const userExists = await this.authService.checkUserExists(email);
-
-    if (userExists) {
-      // User exists - attempt login
-      return this.authService.login({ email, password });
-    } else {
-      // User doesn't exist - check if we have role for registration
-      if (!role) {
-        return {
-          requiresRegistration: true,
-          message: "Please select your account type to continue registration",
-        };
-      }
-
-      // Convert string role to enum if needed
-      const roleEnum = Object.values(UserRole).includes(role as UserRole)
-        ? (role as UserRole)
-        : UserRole.Tenant;
-
-      // Proceed with registration
-      return this.authService.register({
-        email,
-        password,
-        role: roleEnum,
-      });
-    }
-  }
-
   @Post("register")
   async register(@Body() registerDto: RegisterDto) {
-    console.log("🔍 Register endpoint called with role:", registerDto.role);
+    console.log(
+      "🔍 Register endpoint called with email:",
+      registerDto.email,
+      "role:",
+      registerDto.role
+    );
     const result = await this.authService.register(registerDto);
     return result;
   }
@@ -124,12 +75,10 @@ export class AuthController {
     return { sessions };
   }
 
-  @Delete("sessions/:sessionId")
+  @Post("sessions/:sessionId/invalidate")
   @UseGuards(JwtAuthGuard)
-  async invalidateSession(
-    @CurrentUser() user: User,
-    @Param("sessionId") sessionId: string
-  ) {
+  async invalidateSession(@CurrentUser() user: User, @Req() req: Request) {
+    const sessionId = req.params.sessionId;
     await this.authService.invalidateSession(user.id, sessionId);
     return { message: "Session invalidated successfully" };
   }
@@ -166,215 +115,53 @@ export class AuthController {
     return this.authService.refresh(user);
   }
 
+  @Post("check-user")
+  @HttpCode(HttpStatus.OK)
+  async checkUser(@Body("email") email: string) {
+    const exists = await this.authService.checkUserExists(email);
+    return { exists };
+  }
+
+  @Get("test-token")
+  @UseGuards(JwtAuthGuard)
+  async testToken(@CurrentUser() user: User) {
+    console.log("🧪 Test token endpoint called for user:", user.id);
+    return {
+      message: "Token is valid",
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+      },
+    };
+  }
+
   // Google OAuth
   @Get("google")
   @UseGuards(AuthGuard("google"))
   async googleAuth() {
-    // Guard redirects to Google
+    // This endpoint will be handled by Passport Google Strategy
+    // The actual logic is in the GoogleStrategy.validate method
+    // Passport will automatically redirect to Google OAuth
   }
 
   @Get("google/callback")
   @UseGuards(AuthGuard("google"))
-  async googleAuthCallback(@Req() req: any, @Res() res: Response) {
+  async googleCallback(@Req() req: Request, @Res() res: Response) {
     try {
       if (!req.user) {
-        return res.redirect(
-          `${
-            process.env.FRONTEND_URL
-          }/app/auth/callback?success=false&error=${encodeURIComponent(
-            "Authentication failed - no user data"
-          )}`
-        );
-      }
-      // Use simplified Google auth flow
-      const result = await this.authService.googleAuth(req.user);
-
-      if (result.user && !result.isNewUser) {
-        const tokens = await this.authService.generateTokens(result.user);
-
-        const callbackUrl = `${process.env.FRONTEND_URL}/app/auth/callback?token=${tokens.access_token}&success=true&isNewUser=false`;
-        return res.redirect(callbackUrl);
-      } else if (result.tempToken && result.isNewUser) {
-        // Redirect to frontend role selection page with temp token
-        const callbackUrl = `${process.env.FRONTEND_URL}/app/auth/select-role?tempToken=${result.tempToken}`;
-        return res.redirect(callbackUrl);
-      }
-    } catch (error: any) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Authentication failed";
-      return res.redirect(
-        `${
-          process.env.FRONTEND_URL
-        }/app/auth/callback?success=false&error=${encodeURIComponent(
-          errorMessage
-        )}`
-      );
-    }
-  }
-
-  @Post("set-role")
-  @UseGuards(JwtAuthGuard)
-  async setRole(
-    @CurrentUser() user: any,
-    @Body() body: { role: "tenant" | "operator" }
-  ) {
-    try {
-      const { role } = body;
-
-      if (!role || !["tenant", "operator"].includes(role)) {
-        throw new BadRequestException(
-          "Invalid role. Must be 'tenant' or 'operator'"
-        );
+        throw new UnauthorizedException("No user data from Google");
       }
 
-      const updatedUser = await this.authService.setUserRole(
-        user.userId,
-        role === "tenant" ? UserRole.Tenant : UserRole.Operator
-      );
-
-      return {
-        message: "Role set successfully",
-        user: updatedUser,
-      };
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  @Get("temp-token/:token")
-  async getTempTokenInfo(@Param("token") token: string) {
-    try {
-      const tokenInfo = await this.authService.getTempTokenInfo(token);
-
-      if (!tokenInfo) {
-        throw new BadRequestException("Invalid or expired token");
-      }
-
-      return {
-        success: true,
-        googleData: {
-          email: tokenInfo.googleUserData.email,
-          full_name: tokenInfo.googleUserData.full_name,
-          avatar_url: tokenInfo.googleUserData.avatar_url,
-        },
-        expiresAt: tokenInfo.expiresAt,
-      };
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  @Get("select-role")
-  async selectRole(@Query("tempToken") tempToken: string) {
-    try {
-      if (!tempToken) {
-        throw new BadRequestException("Temp token is required");
-      }
-
-      const tokenInfo = await this.authService.getTempTokenInfo(tempToken);
-
-      if (!tokenInfo) {
-        throw new BadRequestException("Invalid or expired token");
-      }
-
-      return {
-        success: true,
-        googleData: {
-          email: tokenInfo.googleUserData.email,
-          full_name: tokenInfo.googleUserData.full_name,
-          avatar_url: tokenInfo.googleUserData.avatar_url,
-        },
-        expiresAt: tokenInfo.expiresAt,
-      };
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  @Post("create-google-user-from-temp-token")
-  async createGoogleUserFromTempToken(
-    @Body() body: { tempToken: string; role: "tenant" | "operator" }
-  ) {
-    try {
-      const { tempToken, role } = body;
-
-      if (!tempToken || !role) {
-        throw new BadRequestException("Temp token and role are required");
-      }
-
-      if (!["tenant", "operator"].includes(role)) {
-        throw new BadRequestException(
-          "Invalid role. Must be 'tenant' or 'operator'"
-        );
-      }
-
-      const user = await this.authService.createGoogleUserFromTempToken(
-        tempToken,
-        role === "tenant" ? UserRole.Tenant : UserRole.Operator
-      );
-
-      // Generate tokens for the new user
+      const user = await this.authService.googleAuth(req.user);
       const tokens = await this.authService.generateTokens(user);
 
-      console.log("🔍 Created Google user:", {
-        email: user.email,
-        role: user.role,
-        id: user.id,
-        provider: user.provider,
-      });
-
-      return {
-        success: true,
-        user,
-        access_token: tokens.access_token,
-      };
+      const callbackUrl = `${process.env.FRONTEND_URL}/app/auth/callback?token=${tokens.accessToken}&success=true`;
+      res.redirect(callbackUrl);
     } catch (error) {
-      throw error;
-    }
-  }
-
-  @Post("create-google-user")
-  async createGoogleUser(
-    @Body() body: { tempToken: string; role: "tenant" | "operator" }
-  ) {
-    try {
-      if (!body.tempToken || !body.role) {
-        throw new BadRequestException("Temp token and role are required");
-      }
-
-      if (!["tenant", "operator"].includes(body.role)) {
-        throw new BadRequestException("Role must be 'tenant' or 'operator'");
-      }
-
-      // Create user from temp token with role
-      const user = await this.authService.createGoogleUserWithRole(
-        body.tempToken,
-        body.role === "tenant" ? UserRole.Tenant : UserRole.Operator
-      );
-
-      // Generate tokens
-      const tokens = await this.authService.generateTokens(user);
-
-      return {
-        success: true,
-        user: {
-          id: user.id,
-          email: user.email,
-          full_name: user.full_name,
-          role: user.role,
-          avatar_url: user.avatar_url,
-          tenantProfile: user.tenantProfile || null,
-          operatorProfile: user.operatorProfile || null,
-          preferences: user.preferences || null,
-        },
-        access_token: tokens.access_token,
-      };
-    } catch (error: any) {
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-
-      throw new BadRequestException(error.message || "Failed to create user");
+      console.error("Google callback error:", error);
+      const errorUrl = `${process.env.FRONTEND_URL}/app/auth/callback?error=auth_failed`;
+      res.redirect(errorUrl);
     }
   }
 }

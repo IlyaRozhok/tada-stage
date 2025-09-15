@@ -150,3 +150,4 @@ export const PROFILE_CONSTANTS = {
 
   LUXURY_FEATURES: ["concierge", "spa", "cinema"] as const,
 } as const;
+

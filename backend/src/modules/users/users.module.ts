@@ -5,6 +5,8 @@ import { UsersService } from "./users.service";
 import { UsersController } from "./users.controller";
 import { UserProfileService } from "./services/user-profile.service";
 import { UserRoleService } from "./services/user-role.service";
+import { UserQueryService } from "./services/user-query.service";
+import { UserAdminService } from "./services/user-admin.service";
 import { User } from "../../entities/user.entity";
 import { TenantProfile } from "../../entities/tenant-profile.entity";
 import { OperatorProfile } from "../../entities/operator-profile.entity";
@@ -22,7 +24,13 @@ import { AuthModule } from "../auth/auth.module";
     AuthModule,
   ],
   controllers: [UsersController],
-  providers: [UsersService, UserProfileService, UserRoleService],
+  providers: [
+    UsersService,
+    UserProfileService,
+    UserRoleService,
+    UserQueryService,
+    UserAdminService,
+  ],
   exports: [UsersService],
 })
 export class UsersModule {}
