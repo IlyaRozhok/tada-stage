@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { Property } from "../../../entities/property.entity";
 import { Preferences } from "../../../entities/preferences.entity";
-import { MatchingResult } from "../matching.service";
+import { EnhancedMatchingResult } from "../matching-enhanced.service";
 
 @Injectable()
 export class MatchingNotificationService {
@@ -65,7 +65,7 @@ export class MatchingNotificationService {
    */
   async notifyPreferencesUpdate(
     userId: string,
-    newMatches: MatchingResult[]
+    newMatches: EnhancedMatchingResult[]
   ): Promise<void> {
     // TODO: Implement notification logic
     console.log(`📝 Preferences update notification for user ${userId}:`, {

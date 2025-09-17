@@ -7,7 +7,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, In } from "typeorm";
 import { Property } from "../../entities/property.entity";
 import { CreatePropertyDto } from "./dto/create-property.dto";
-import { MatchingService } from "../matching/matching.service";
+import { MatchingEnhancedService } from "../matching/matching-enhanced.service";
 import { Shortlist } from "../../entities/shortlist.entity";
 import { User } from "../../entities/user.entity";
 import { TenantProfile } from "../../entities/tenant-profile.entity";
@@ -25,7 +25,7 @@ export class PropertiesService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(TenantProfile)
     private readonly tenantProfileRepository: Repository<TenantProfile>,
-    private readonly matchingService: MatchingService,
+    private readonly matchingService: MatchingEnhancedService,
     private readonly propertyMediaService: PropertyMediaService
   ) {}
 
@@ -70,7 +70,10 @@ export class PropertiesService {
   }> {
     // Ensure page and limit are valid numbers
     const validPage = Math.max(1, Math.floor(Number(page)) || 1);
-    const validLimit = Math.max(1, Math.min(100, Math.floor(Number(limit)) || 10));
+    const validLimit = Math.max(
+      1,
+      Math.min(100, Math.floor(Number(limit)) || 10)
+    );
 
     const queryBuilder = this.propertyRepository
       .createQueryBuilder("property")
@@ -111,10 +114,17 @@ export class PropertiesService {
       .getManyAndCount();
 
     // Update presigned URLs for all properties
-    const propertiesWithUrls = await this.propertyMediaService.updateMultiplePropertiesMediaUrls(properties);
+    const propertiesWithUrls =
+      await this.propertyMediaService.updateMultiplePropertiesMediaUrls(
+        properties
+      );
 
     // Add shortlist flags
-    const propertiesWithFlags = await this.propertyMediaService.addShortlistFlags(propertiesWithUrls, userId);
+    const propertiesWithFlags =
+      await this.propertyMediaService.addShortlistFlags(
+        propertiesWithUrls,
+        userId
+      );
 
     return {
       properties: propertiesWithFlags,
@@ -139,12 +149,20 @@ export class PropertiesService {
     console.log("🖼️ Backend - Property media before URLs:", property.media);
 
     // Update presigned URLs for media
-    const propertyWithUrls = await this.propertyMediaService.updateMediaPresignedUrls(property);
+    const propertyWithUrls =
+      await this.propertyMediaService.updateMediaPresignedUrls(property);
 
-    console.log("🖼️ Backend - Property media after URLs:", propertyWithUrls.media);
+    console.log(
+      "🖼️ Backend - Property media after URLs:",
+      propertyWithUrls.media
+    );
 
     // Add shortlist flag
-    const [propertyWithFlag] = await this.propertyMediaService.addShortlistFlags([propertyWithUrls], userId);
+    const [propertyWithFlag] =
+      await this.propertyMediaService.addShortlistFlags(
+        [propertyWithUrls],
+        userId
+      );
 
     console.log("🖼️ Backend - Final property media:", propertyWithFlag.media);
 
@@ -158,8 +176,14 @@ export class PropertiesService {
       order: { created_at: "DESC" },
     });
 
-    const propertiesWithUrls = await this.propertyMediaService.updateMultiplePropertiesMediaUrls(properties);
-    return await this.propertyMediaService.addShortlistFlags(propertiesWithUrls, userId);
+    const propertiesWithUrls =
+      await this.propertyMediaService.updateMultiplePropertiesMediaUrls(
+        properties
+      );
+    return await this.propertyMediaService.addShortlistFlags(
+      propertiesWithUrls,
+      userId
+    );
   }
 
   async update(
@@ -225,7 +249,10 @@ export class PropertiesService {
     });
   }
 
-  async findMatchedProperties(userId: string, limit: number = 6): Promise<Property[]> {
+  async findMatchedProperties(
+    userId: string,
+    limit: number = 6
+  ): Promise<Property[]> {
     return await this.matchingService.findMatchedProperties(userId, limit);
   }
 
@@ -246,11 +273,16 @@ export class PropertiesService {
     };
   }
 
-  async getInterestedTenants(propertyId: string, operatorId: string): Promise<any> {
+  async getInterestedTenants(
+    propertyId: string,
+    operatorId: string
+  ): Promise<any> {
     const property = await this.findOne(propertyId);
 
     if (property.operator_id !== operatorId) {
-      throw new ForbiddenException("You can only view interested tenants for your own properties");
+      throw new ForbiddenException(
+        "You can only view interested tenants for your own properties"
+      );
     }
 
     const shortlists = await this.shortlistRepository.find({

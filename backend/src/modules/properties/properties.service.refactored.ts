@@ -7,7 +7,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, In } from "typeorm";
 import { Property } from "../../entities/property.entity";
 import { CreatePropertyDto } from "./dto/create-property.dto";
-import { MatchingService } from "../matching/matching.service";
+import { MatchingEnhancedService } from "../matching/matching-enhanced.service";
 import { Shortlist } from "../../entities/shortlist.entity";
 import { User } from "../../entities/user.entity";
 import { TenantProfile } from "../../entities/tenant-profile.entity";
@@ -25,7 +25,7 @@ export class PropertiesService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(TenantProfile)
     private readonly tenantProfileRepository: Repository<TenantProfile>,
-    private readonly matchingService: MatchingService,
+    private readonly matchingService: MatchingEnhancedService,
     private readonly propertyMediaService: PropertyMediaService
   ) {}
 
@@ -298,4 +298,3 @@ export class PropertiesService {
     };
   }
 }
-

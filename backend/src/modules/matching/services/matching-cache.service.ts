@@ -1,13 +1,13 @@
 import { Injectable } from "@nestjs/common";
 import { Property } from "../../../entities/property.entity";
-import { MatchingResult } from "../matching.service";
+import { EnhancedMatchingResult } from "../matching-enhanced.service";
 
 @Injectable()
 export class MatchingCacheService {
   private cache = new Map<
     string,
     {
-      data: Property[] | MatchingResult[];
+      data: Property[] | EnhancedMatchingResult[];
       timestamp: number;
       ttl: number;
     }

@@ -78,9 +78,16 @@ export class AuthService {
           email: savedUser.email,
           role: savedUser.role,
           status: savedUser.status,
+          full_name: savedUser.full_name,
+          avatar_url: savedUser.avatar_url,
+          provider: savedUser.provider,
+          google_id: savedUser.google_id,
+          email_verified: savedUser.email_verified,
+          created_at: savedUser.created_at,
+          updated_at: savedUser.updated_at,
         },
-        accessToken,
-        refreshToken,
+        access_token: accessToken,
+        refresh_token: refreshToken,
       };
     } catch (error) {
       console.error("Error during registration:", error);
@@ -104,9 +111,16 @@ export class AuthService {
         email: user.email,
         role: user.role,
         status: user.status,
+        full_name: user.full_name,
+        avatar_url: user.avatar_url,
+        provider: user.provider,
+        google_id: user.google_id,
+        email_verified: user.email_verified,
+        created_at: user.created_at,
+        updated_at: user.updated_at,
       },
-      accessToken,
-      refreshToken,
+      access_token: accessToken,
+      refresh_token: refreshToken,
     };
   }
 
@@ -115,8 +129,8 @@ export class AuthService {
     const refreshToken = this.authTokenService.generateRefreshToken(user);
 
     return {
-      accessToken,
-      refreshToken,
+      access_token: accessToken,
+      refresh_token: refreshToken,
     };
   }
 
@@ -174,6 +188,10 @@ export class AuthService {
       user = this.userRepository.create({
         email: googleUser.email.toLowerCase(),
         google_id: googleUser.google_id,
+        full_name: googleUser.full_name,
+        avatar_url: googleUser.avatar_url,
+        email_verified: googleUser.email_verified,
+        provider: "google",
         role: UserRole.Tenant, // Default role
         status: UserStatus.Active,
       });
@@ -182,6 +200,12 @@ export class AuthService {
 
       // Create tenant profile for Google users
       await this.createTenantProfile(user);
+    } else {
+      // Update existing user with latest Google data
+      user.full_name = googleUser.full_name;
+      user.avatar_url = googleUser.avatar_url;
+      user.email_verified = googleUser.email_verified;
+      user = await this.userRepository.save(user);
     }
 
     return user;
@@ -197,6 +221,10 @@ export class AuthService {
     const user = this.userRepository.create({
       email: tokenInfo.googleUserData.email,
       google_id: tokenInfo.googleUserData.google_id,
+      full_name: tokenInfo.googleUserData.full_name,
+      avatar_url: tokenInfo.googleUserData.avatar_url,
+      email_verified: tokenInfo.googleUserData.email_verified,
+      provider: "google",
       role: role,
       status: UserStatus.Active,
     });

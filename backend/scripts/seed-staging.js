@@ -13,7 +13,7 @@ const axios = require("axios");
 const FormData = require("form-data");
 
 // Configuration for staging
-const STAGING_URL = "https://api.stage.ta-da.co/api";
+const STAGING_URL = "https://stage.ta-da.co/api";
 const OPERATORS_COUNT = 5;
 const PROPERTIES_PER_OPERATOR = 4;
 
